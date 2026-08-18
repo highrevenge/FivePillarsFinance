@@ -62,6 +62,16 @@ document.getElementById("forgotBtn").onclick=()=>{
   document.getElementById("register").hidden=true;
   document.getElementById("forgot").hidden=false;
   document.getElementById("loginMsg").textContent="";
+  // Reset all forgot sections
+  document.getElementById("forgotEmailStep").hidden=false;
+  document.getElementById("forgotVerificationStep").hidden=true;
+  document.getElementById("forgotPasswordStep").hidden=true;
+  document.getElementById("forgotMsg").textContent="";
+  document.getElementById("forgotVerifyMsg").textContent="";
+  document.getElementById("forgotPasswordMsg").textContent="";
+  document.getElementById("forgotEmailForm").reset();
+  document.getElementById("forgotVerifyForm").reset();
+  document.getElementById("forgotPasswordForm").reset();
 };
 
 document.getElementById("backToLoginBtn").onclick=()=>{
@@ -69,19 +79,88 @@ document.getElementById("backToLoginBtn").onclick=()=>{
   document.getElementById("register").hidden=true;
   document.getElementById("login").hidden=false;
   document.getElementById("forgotMsg").textContent="";
+  document.getElementById("forgotVerifyMsg").textContent="";
+  document.getElementById("forgotPasswordMsg").textContent="";
+  document.getElementById("forgotEmailStep").hidden=false;
+  document.getElementById("forgotVerificationStep").hidden=true;
+  document.getElementById("forgotPasswordStep").hidden=true;
+  // Clear verification code
+  const mail=email(document.getElementById("forgotEmail").value);
+  if(mail) clearVerificationCode(mail);
+  document.getElementById("forgotEmailForm").reset();
+  document.getElementById("forgotVerifyForm").reset();
+  document.getElementById("forgotPasswordForm").reset();
 };
 
-document.getElementById("forgotForm").onsubmit=e=>{
+// Step 1: Email submission - send verification code
+document.getElementById("forgotEmailForm").onsubmit=e=>{
+  e.preventDefault();
+  const msg=document.getElementById("forgotMsg");
+  const mail=email(document.getElementById("forgotEmail").value);
+  const users=getUsers();
+
+  if(!users[mail]){
+    msg.textContent="No account was found with that email.";
+    return;
+  }
+
+  // Send verification code
+  const result=sendVerificationCode(mail);
+  msg.textContent=result.message;
+  
+  // Show verification step
+  setTimeout(()=>{
+    document.getElementById("forgotEmailStep").hidden=true;
+    document.getElementById("forgotVerificationStep").hidden=false;
+    document.getElementById("verificationCode").focus();
+  }, 1000);
+};
+
+// Back to email button
+document.getElementById("backToEmailBtn").onclick=()=>{
+  const mail=email(document.getElementById("forgotEmail").value);
+  clearVerificationCode(mail);
+  document.getElementById("forgotEmailStep").hidden=false;
+  document.getElementById("forgotVerificationStep").hidden=true;
+  document.getElementById("forgotPasswordStep").hidden=true;
+  document.getElementById("forgotMsg").textContent="";
+  document.getElementById("forgotVerifyMsg").textContent="";
+  document.getElementById("verificationCode").value="";
+  document.getElementById("forgotEmail").focus();
+};
+
+// Step 2: Verification code submission
+document.getElementById("forgotVerifyForm").onsubmit=e=>{
+  e.preventDefault();
+  const msg=document.getElementById("forgotVerifyMsg");
+  const mail=email(document.getElementById("forgotEmail").value);
+  const code=document.getElementById("verificationCode").value;
+
+  const result=verifyCode(mail,code);
+  msg.textContent=result.message;
+  
+  if(result.success){
+    // Show password reset step
+    setTimeout(()=>{
+      document.getElementById("forgotVerificationStep").hidden=true;
+      document.getElementById("forgotPasswordStep").hidden=false;
+      document.getElementById("newPassword").focus();
+    }, 1000);
+  }
+};
+
+// Step 3: Password reset
+document.getElementById("forgotPasswordForm").onsubmit=e=>{
   e.preventDefault();
 
-  const msg=document.getElementById("forgotMsg");
+  const msg=document.getElementById("forgotPasswordMsg");
   const mail=email(document.getElementById("forgotEmail").value);
   const newPass=document.getElementById("newPassword").value;
   const confirmPass=document.getElementById("confirmNewPassword").value;
   const users=getUsers();
 
   if(!users[mail]){
-    msg.textContent="No account was found with that email.";
+    msg.textContent="Account not found.";
     return;
   }
 
@@ -101,7 +180,9 @@ document.getElementById("forgotForm").onsubmit=e=>{
   const changedUser = users[mail];
 
   msg.textContent="";
-  document.getElementById("forgotForm").reset();
+  document.getElementById("forgotEmailForm").reset();
+  document.getElementById("forgotVerifyForm").reset();
+  document.getElementById("forgotPasswordForm").reset();
 
   // Show a floating success message with the user's name.
   const toast = document.getElementById("toastMessage");
@@ -127,6 +208,11 @@ document.getElementById("forgotForm").onsubmit=e=>{
     document.getElementById("forgot").hidden=true;
     document.getElementById("login").hidden=false;
     document.getElementById("forgotMsg").textContent="";
+    document.getElementById("forgotVerifyMsg").textContent="";
+    document.getElementById("forgotPasswordMsg").textContent="";
+    document.getElementById("forgotEmailStep").hidden=false;
+    document.getElementById("forgotVerificationStep").hidden=true;
+    document.getElementById("forgotPasswordStep").hidden=true;
   },1200);
 };
 
