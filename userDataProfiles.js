@@ -3,11 +3,16 @@
 
   // Must match systemDashboard.js's SESSION_KEY — this is how we know
   // *which* signed-in account the saved profile edit belongs to.
-  var SESSION_KEY = "five-pillar-session-v2";
+  var SESSION_KEY = "five-pillar-finance-session-v2";
   var NAME_PREFIX = "Signed in: ";
 
   function currentUserEmail() {
-    try { return localStorage.getItem(SESSION_KEY) || ""; } catch (e) { return ""; }
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return "";
+      var session = JSON.parse(raw);
+      return (session && session.email) || "";
+    } catch (e) { return ""; }
   }
 
   // Per-account storage key (e.g. "dashboard-user-profile:monaliza@example.com").
