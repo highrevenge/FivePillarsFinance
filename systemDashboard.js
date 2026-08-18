@@ -1,8 +1,8 @@
 (function(){
   "use strict";
 
-  const SESSION_KEY = "five-pillar-session-v2";
-  const USERS_KEY = "five-pillar-users-v2";
+  const SESSION_KEY = "five-pillar-finance-session-v2";
+  const USERS_KEY = "five-pillar-finance-users-v2";
   const DATA_PREFIX = "five-pillar-user-data-v2:";
   const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -37,11 +37,17 @@
     catch(e){ return {}; }
   }
 
-  const sessionEmail = localStorage.getItem(SESSION_KEY);
+  function getSession(){
+    try{ return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); }
+    catch(e){ return null; }
+  }
+
+  const session = getSession();
+  const sessionEmail = session && session.email;
   const users = getUsers();
 
   if(!sessionEmail || !users[sessionEmail]){
-    window.location.replace("./login_separate.html");
+    window.location.replace("./index.html");
     throw new Error("Login required.");
   }
 
@@ -67,7 +73,7 @@
     } catch(e) {}
 
     localStorage.removeItem(SESSION_KEY);
-    window.location.replace("./login.html");
+    window.location.replace("./index.html");
   }
 
   let state = loadState();
