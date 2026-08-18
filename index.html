@@ -44,13 +44,35 @@
 <p class="eyebrow">Account recovery</p>
 <h1>Forgot password?</h1>
 <p class="sub">Enter your registered email address to reset your password.</p>
-<form id="forgotForm">
+
+<div id="forgotEmailStep">
+<form id="forgotEmailForm">
 <label>Email<input id="forgotEmail" type="email" required placeholder="example123@gmail.com"></label>
+<button class="primary" type="submit">Send verification code</button>
+</form>
+<p id="forgotMsg" class="msg"></p>
+</div>
+
+<div id="forgotVerificationStep" hidden>
+<p style="font-size: 14px; margin-bottom: 16px;">We've sent a verification code to your email. Please enter it below.</p>
+<form id="forgotVerifyForm">
+<label>Verification code<input id="verificationCode" type="text" maxlength="6" required placeholder="000000"></label>
+<button class="primary" type="submit">Verify</button>
+</form>
+<p id="forgotVerifyMsg" class="msg"></p>
+<button class="switch" type="button" id="backToEmailBtn">Back to email</button>
+</div>
+
+<div id="forgotPasswordStep" hidden>
+<p style="font-size: 14px; margin-bottom: 16px;">Email verified! Now enter your new password.</p>
+<form id="forgotPasswordForm">
 <label>New password<input id="newPassword" type="password" minlength="6" required placeholder="••••••••"></label>
 <label>Confirm password<input id="confirmNewPassword" type="password" minlength="6" required placeholder="••••••••"></label>
 <button class="primary" type="submit">Reset password</button>
 </form>
-<p id="forgotMsg" class="msg"></p>
+<p id="forgotPasswordMsg" class="msg"></p>
+</div>
+
 <button class="switch" id="backToLoginBtn" type="button">Back to login</button>
 </section>
 
@@ -77,6 +99,7 @@
 </section>
 </div>
 
+<script src="emailVerification.js"></script>
 <script src="usersLoginSystem.js"></script>
 </body>
 </html>
