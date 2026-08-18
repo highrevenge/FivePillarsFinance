@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="login.css">
+<style>
+  /* Avatar upload — kept inline so it renders even without editing login.css */
+  .avatar-field{display:flex; align-items:center; gap:14px; margin:2px 0 4px;}
+  .avatar-preview{
+    width:64px; height:64px; border-radius:50%; object-fit:cover;
+    border:1px solid rgba(0,0,0,.15); background:#eee; flex:none;
+  }
+  .avatar-preview[hidden]{display:none;}
+  .avatar-placeholder{
+    width:64px; height:64px; border-radius:50%; flex:none;
+    background:rgba(0,0,0,.06); display:flex; align-items:center; justify-content:center;
+    font-size:11px; color:#777; text-align:center; line-height:1.2;
+  }
+  .avatar-hint{font-size:12px; opacity:.7; margin-top:2px;}
+</style>
+<title>5-Pillar Finance — Login</title>
+</head>
+<body>
+<div id="toastMessage" class="toast-message" role="status" aria-live="polite"></div>
+<div class="card">
+<div class="brand">5-PILLAR FINANCE</div>
+
+<section id="login">
+<p class="eyebrow" id="signin-top">Welcome back</p>
+<h1 id="signin-top">Sign in</h1>
+<p class="sub" id="signin-top">Log in to access your personal dashboard.</p>
+<form id="loginForm">
+<label>Email<input id="email" type="email" required placeholder="example123@gmail.com"></label>
+<label>Password<input id="password" type="password" required placeholder="At least 8 characters"></label>
+<button class="primary" type="submit">Log in</button>
+</form>
+<p id="loginMsg" class="msg"></p>
+<button class="switch" id="forgotBtn" type="button">Forgot password?</button>
+<button class="switch" id="registerBtn" type="button">Create a new account</button>
+</section>
+
+<section id="forgot" hidden>
+<p class="eyebrow">Account recovery</p>
+<h1>Forgot password?</h1>
+<p class="sub">Enter your registered email address to reset your password.</p>
+<form id="forgotForm">
+<label>Email<input id="forgotEmail" type="email" required placeholder="example123@gmail.com"></label>
+<label>New password<input id="newPassword" type="password" minlength="6" required placeholder="••••••••"></label>
+<label>Confirm password<input id="confirmNewPassword" type="password" minlength="6" required placeholder="••••••••"></label>
+<button class="primary" type="submit">Reset password</button>
+</form>
+<p id="forgotMsg" class="msg"></p>
+<button class="switch" id="backToLoginBtn" type="button">Back to login</button>
+</section>
+
+<section id="register" hidden>
+<p class="eyebrow">New account</p>
+<h1>Create account</h1>
+<p class="sub">Your finance data will be saved separately for your account.</p>
+<form id="registerForm">
+<label>Full name<input id="name" type="text" required></label>
+<div class="avatar-field">
+  <img id="avatarPreview" class="avatar-preview" alt="Profile picture preview" hidden>
+  <span id="avatarPlaceholder" class="avatar-placeholder">No photo</span>
+  <label style="flex:1;">Profile picture (optional)<input id="avatarInput" type="file" accept="image/*"></label>
+</div>
+<p class="avatar-hint">JPG or PNG, under 5MB. You can skip this and add one later.</p>
+<label>Email<input id="regEmail" type="email" required></label>
+<label>Password<input id="regPassword" type="password" minlength="6" required></label>
+<label>Confirm password<input id="confirmPassword" type="password" minlength="6" required></label>
+<button class="primary" type="submit">Register</button>
+<input id="terms-condition" type="checkbox" required> <label for="terms-condition">I agree to the <a href="https://www.termsfeed.com/live/1f3c7d5b-0f8e-4c6a-9b2e-1f3c7d5b0f8e" target="_blank">Terms of Service</a> and <a href="https://www.termsfeed.com/live/1f3c7d5b-0f8e-4c6a-9b2e-1f3c7d5b0f8e" target="_blank">Privacy Policy</a>. </label>
+</form>
+<p id="registerMsg" class="msg"></p>
+<button class="switch" id="loginBtn" type="button">Already have an account? Log in</button>
+</section>
+</div>
+
+<script src="usersLoginSystem.js"></script>
+</body>
+</html>
