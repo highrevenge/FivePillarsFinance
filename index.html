@@ -4,6 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="login.css">
+<!-- EmailJS for sending verification emails -->
+<script type="text/javascript"
+  src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"
+  onerror="window.__emailjsLoadFailed = true; console.error('EmailJS SDK failed to load from the CDN. Check your internet connection, firewall, or ad-blocker (cdn.jsdelivr.net may be blocked).');">
+</script>
+<script type="text/javascript">
+  (function(){
+    if (typeof emailjs === 'undefined') {
+      window.__emailjsLoadFailed = true;
+      console.error('EmailJS SDK did not load — "emailjs" is undefined. The CDN script likely failed to download.');
+      return;
+    }
+    try {
+      // Initialize EmailJS - REPLACE WITH YOUR PUBLIC KEY
+      emailjs.init("o2tp7UKvLsS2ukxND");
+    } catch (e) {
+      window.__emailjsLoadFailed = true;
+      console.error('EmailJS init() threw an error:', e);
+    }
+  })();
+</script>
 <style>
   /* Avatar upload — kept inline so it renders even without editing login.css */
   .avatar-field{display:flex; align-items:center; gap:14px; margin:2px 0 4px;}
@@ -48,7 +69,7 @@
 <div id="forgotEmailStep">
 <form id="forgotEmailForm">
 <label>Email<input id="forgotEmail" type="email" required placeholder="example123@gmail.com"></label>
-<button class="primary" type="submit">Send verification code</button>
+<button class="primary" type="submit" id="sendCodeBtn">Send verification code</button>
 </form>
 <p id="forgotMsg" class="msg"></p>
 </div>
