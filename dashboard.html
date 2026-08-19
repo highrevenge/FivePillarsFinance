@@ -389,15 +389,15 @@
 <body>
 
 <nav class="tabbar" aria-label="Pillar navigation">
-  <div class="tabbar-tabs">
+  <div class="tabbar-tabs" role="tablist" aria-label="Dashboard sections">
     <span class="brandmark">5-PILLAR INC</span> &nbsp; &nbsp; &nbsp;
-    <button class="tab is-active" data-panel="dashboard">Dashboard</button>
-    <button class="tab" data-panel="income">Income</button>
-    <button class="tab" data-panel="savings">Savings</button>
-    <button class="tab" data-panel="spending">Spending</button>
-    <button class="tab" data-panel="investments">Investments</button>
-    <button class="tab" data-panel="protection">Protection</button>
-    <button class="tab" data-panel="guide">Guide</button>
+    <button class="tab is-active" id="tab-dashboard" data-panel="dashboard" role="tab" aria-selected="true" aria-controls="panel-dashboard" tabindex="0">Dashboard</button>
+    <button class="tab" id="tab-income" data-panel="income" role="tab" aria-selected="false" aria-controls="panel-income" tabindex="-1">Income</button>
+    <button class="tab" id="tab-savings" data-panel="savings" role="tab" aria-selected="false" aria-controls="panel-savings" tabindex="-1">Savings</button>
+    <button class="tab" id="tab-spending" data-panel="spending" role="tab" aria-selected="false" aria-controls="panel-spending" tabindex="-1">Spending</button>
+    <button class="tab" id="tab-investments" data-panel="investments" role="tab" aria-selected="false" aria-controls="panel-investments" tabindex="-1">Investments</button>
+    <button class="tab" id="tab-protection" data-panel="protection" role="tab" aria-selected="false" aria-controls="panel-protection" tabindex="-1">Protection</button>
+    <button class="tab" id="tab-guide" data-panel="guide" role="tab" aria-selected="false" aria-controls="panel-guide" tabindex="-1">Guide</button>
   </div>
   <div class="user-menu" id="user-menu">
     <button type="button" class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="user-menu-dropdown">
@@ -422,7 +422,7 @@
 <main>
 
   <!-- ===================== DASHBOARD ===================== -->
-  <section class="panel is-active" id="panel-dashboard">
+  <section class="panel is-active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
     <div class="hero">
       <div class="ledger-rule"></div>
       <div class="hero-inner">
@@ -499,12 +499,15 @@
     </div>
 
     <div class="reset-row">
+      <button class="reset-btn" id="export-data-btn">Download backup (.json)</button>
+      <label class="reset-btn" id="import-data-btn" for="import-data-input" style="cursor:pointer;">Restore from backup</label>
+      <input type="file" id="import-data-input" accept="application/json" hidden>
       <button class="reset-btn" id="reset-all">Reset all data to sample rows</button>
     </div>
   </section>
 
   <!-- ===================== INCOME ===================== -->
-  <section class="panel" id="panel-income">
+  <section class="panel" id="panel-income" role="tabpanel" aria-labelledby="tab-income">
     <p class="eyebrow">Pillar 01</p>
     <div class="pillar-head">
       <h2><span class="glyph">💵</span>Income</h2>
@@ -576,7 +579,7 @@
   </section>
 
   <!-- ===================== SAVINGS ===================== -->
-  <section class="panel" id="panel-savings">
+  <section class="panel" id="panel-savings" role="tabpanel" aria-labelledby="tab-savings">
     <p class="eyebrow">Pillar 02</p>
     <div class="pillar-head"><h2><span class="glyph">🐷</span>Savings</h2></div>
     <p class="lede">Named goals, tracked toward a deadline. Progress % and Remaining Amount calculate themselves.</p>
@@ -649,7 +652,7 @@
   </section>
 
   <!-- ===================== SPENDING ===================== -->
-  <section class="panel" id="panel-spending">
+  <section class="panel" id="panel-spending" role="tabpanel" aria-labelledby="tab-spending">
     <p class="eyebrow">Pillar 03</p>
     <div class="pillar-head">
       <h2><span class="glyph">🛒</span>Spending</h2>
@@ -739,7 +742,7 @@
   </section>
 
   <!-- ===================== INVESTMENTS ===================== -->
-  <section class="panel" id="panel-investments">
+  <section class="panel" id="panel-investments" role="tabpanel" aria-labelledby="tab-investments">
     <p class="eyebrow">Pillar 04</p>
     <div class="pillar-head">
       <h2><span class="glyph">📈</span>Investments</h2>
@@ -829,7 +832,7 @@
   </section>
 
   <!-- ===================== PROTECTION ===================== -->
-  <section class="panel" id="panel-protection">
+  <section class="panel" id="panel-protection" role="tabpanel" aria-labelledby="tab-protection">
     <p class="eyebrow">Pillar 05</p>
     <div class="pillar-head">
       <h2><span class="glyph">🛡</span>Protection</h2>
@@ -922,7 +925,7 @@
   </section>
 
   <!-- ===================== GUIDE ===================== -->
-  <section class="panel" id="panel-guide">
+  <section class="panel" id="panel-guide" role="tabpanel" aria-labelledby="tab-guide">
     <div class="guide" style="margin-top:0;">
       <p class="eyebrow">Guide &amp; Definitions</p>
       <h2>How to read every sheet</h2>
