@@ -1007,17 +1007,20 @@
   var PIE_CONFIGS = [
     {
       tbodyId: 'income-body', pieId: 'income-pie', legendId: 'income-pie-legend',
-      catIdx: 2, valIdx: 4, emptyMsg: 'No income entries yet — add one to see the breakdown.',
+      stateKey: 'income', catField: 'category', valField: 'actual',
+      emptyMsg: 'No income entries yet — add one to see the breakdown.',
       colors: { 'Salary':'#B8862F', 'Business':'#6E8478', 'Freelance':'#4A6FA5', 'Allowance':'#C1666B', 'Other':'#8073AE' }
     },
     {
       tbodyId: 'savings-body', pieId: 'savings-pie', legendId: 'savings-pie-legend',
-      catIdx: 1, valIdx: 3, emptyMsg: 'No savings goals yet — add one to see the breakdown.',
+      stateKey: 'savings', catField: 'account', valField: 'saved',
+      emptyMsg: 'No savings goals yet — add one to see the breakdown.',
       colors: { 'Bank Savings':'#6E8478', 'Emergency Fund':'#C1666B', 'Digital Bank':'#4A6FA5', 'Cooperative':'#B8862F', 'Other':'#8073AE' }
     },
     {
       tbodyId: 'spending-body', pieId: 'spending-pie', legendId: 'spending-pie-legend',
-      catIdx: 1, valIdx: 5, emptyMsg: 'No spending entries yet — add one to see the breakdown.',
+      stateKey: 'spending', catField: 'category', valField: 'actual',
+      emptyMsg: 'No spending entries yet — add one to see the breakdown.',
       colors: {
         'Housing':'#B8862F', 'Utilities':'#6E8478', 'Groceries':'#4A6FA5', 'Transportation':'#C1666B',
         'Healthcare':'#8073AE', 'Education':'#5C8374', 'Dining Out':'#9C5959', 'Shopping':'#496A81',
@@ -1026,12 +1029,14 @@
     },
     {
       tbodyId: 'investments-body', pieId: 'investments-pie', legendId: 'investments-pie-legend',
-      catIdx: 0, valIdx: 3, emptyMsg: 'No investments logged yet — add one to see the breakdown.',
+      stateKey: 'investments', catField: 'type', valField: 'current',
+      emptyMsg: 'No investments logged yet — add one to see the breakdown.',
       colors: { 'Stocks':'#4A6FA5', 'Bonds':'#6E8478', 'Mutual Fund':'#B8862F', 'UITF':'#C1666B', 'ETF':'#8073AE', 'Time Deposit':'#5C8374', 'Other':'#8A8A8A' }
     },
     {
       tbodyId: 'protection-body', pieId: 'protection-pie', legendId: 'protection-pie-legend',
-      catIdx: 0, valIdx: 3, emptyMsg: 'No protection entries yet — add one to see the breakdown.',
+      stateKey: 'protection', catField: 'type', valField: 'premium',
+      emptyMsg: 'No protection entries yet — add one to see the breakdown.',
       colors: { 'Health Insurance':'#4A6FA5', 'Life Insurance':'#C1666B', 'Property Insurance':'#B8862F', 'Vehicle Insurance':'#6E8478', 'Emergency Fund':'#8073AE', 'Other Coverage':'#8A8A8A' }
     }
   ];
@@ -1042,28 +1047,23 @@
     return config.colors[category] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
   }
 
-  function parseAmount(text){
-    if(!text) return 0;
-    var cleaned = text.replace(/[^0-9.\-]/g, '');
-    var n = parseFloat(cleaned);
-    return isNaN(n) ? 0 : n;
-  }
-
   function formatPeso(n){
     return '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: 2 });
   }
 
+  // Reads straight from the dashboard's real state object (via the accessor
+  // systemDashboard.js exposes) instead of re-parsing formatted ₱ strings
+  // back out of rendered table cells — no risk of drifting out of sync with
+  // however money() happens to format things, and no comma/locale gotchas.
   function computeCategoryTotals(config){
-    var body = document.getElementById(config.tbodyId);
     var totals = {};
     var order = [];
-    if(!body) return { totals: totals, order: order, grand: 0 };
+    var state = window.getDashboardState ? window.getDashboardState() : null;
+    var list = (state && state[config.stateKey]) || [];
 
-    Array.prototype.forEach.call(body.querySelectorAll('tr'), function(row){
-      var cells = row.querySelectorAll('td');
-      if(cells.length <= Math.max(config.catIdx, config.valIdx)) return; // skip malformed / placeholder rows
-      var category = (cells[config.catIdx].textContent || 'Other').trim() || 'Other';
-      var value = Math.abs(parseAmount(cells[config.valIdx].textContent));
+    list.forEach(function(entry){
+      var category = (entry[config.catField] || 'Other').toString().trim() || 'Other';
+      var value = Math.abs(Number(entry[config.valField]) || 0);
       if(!(category in totals)){
         totals[category] = 0;
         order.push(category);
