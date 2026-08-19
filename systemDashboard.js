@@ -84,13 +84,37 @@
   const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
   /* ---------- tab switching ---------- */
-  document.querySelectorAll(".tab").forEach(tab=>{
-    tab.addEventListener("click", ()=>{
-      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("is-active"));
-      document.querySelectorAll(".panel").forEach(p=>p.classList.remove("is-active"));
-      tab.classList.add("is-active");
-      document.getElementById("panel-"+tab.dataset.panel).classList.add("is-active");
+  const tabEls = Array.from(document.querySelectorAll(".tab"));
+
+  function activateTab(tab){
+    tabEls.forEach(t=>{
+      const isActive = t === tab;
+      t.classList.toggle("is-active", isActive);
+      t.setAttribute("aria-selected", isActive ? "true" : "false");
+      t.tabIndex = isActive ? 0 : -1;
     });
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("is-active"));
+    document.getElementById("panel-"+tab.dataset.panel).classList.add("is-active");
+  }
+
+  tabEls.forEach(tab=>{
+    tab.addEventListener("click", ()=> activateTab(tab));
+  });
+
+  // Left/Right (and Home/End) move focus + selection between tabs, matching
+  // the standard ARIA tabs keyboard pattern for screen reader / keyboard users.
+  document.querySelector(".tabbar-tabs").addEventListener("keydown", ev=>{
+    const currentIndex = tabEls.indexOf(document.activeElement);
+    if(currentIndex === -1) return;
+    let nextIndex = null;
+    if(ev.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabEls.length;
+    else if(ev.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabEls.length) % tabEls.length;
+    else if(ev.key === "Home") nextIndex = 0;
+    else if(ev.key === "End") nextIndex = tabEls.length - 1;
+    if(nextIndex === null) return;
+    ev.preventDefault();
+    tabEls[nextIndex].focus();
+    activateTab(tabEls[nextIndex]);
   });
 
   /* ---------- generic row builder ---------- */
@@ -338,6 +362,76 @@
       state = {income:[],savings:[],spending:[],investments:[],protection:[]};
       renderAll();
     }
+  });
+
+  /* ---------- backup: export / import ---------- */
+  // Data only lives in this browser's localStorage — clearing browser data,
+  // switching devices, or a corrupted profile loses it permanently. These
+  // let the user save a copy to a file and restore it later.
+  document.getElementById("export-data-btn").addEventListener("click", ()=>{
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      account: currentUser.email,
+      data: state
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `5-pillar-finance-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  const REQUIRED_KEYS = ["income","savings","spending","investments","protection"];
+
+  document.getElementById("import-data-input").addEventListener("change", ev=>{
+    const file = ev.target.files && ev.target.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try{
+        parsed = JSON.parse(reader.result);
+      }catch(e){
+        alert("That file isn't valid JSON — couldn't read it as a backup file.");
+        ev.target.value = "";
+        return;
+      }
+
+      const incoming = parsed && parsed.data ? parsed.data : parsed; // accept either a full export or a raw state object
+      const looksValid = incoming && REQUIRED_KEYS.every(k => Array.isArray(incoming[k]));
+      if(!looksValid){
+        alert("That file doesn't look like a 5-Pillar Finance backup (missing expected data).");
+        ev.target.value = "";
+        return;
+      }
+
+      if(!confirm("Restore this backup? It will replace all of your current dashboard data.")){
+        ev.target.value = "";
+        return;
+      }
+
+      state = {
+        income: incoming.income,
+        savings: incoming.savings,
+        spending: incoming.spending,
+        investments: incoming.investments,
+        protection: incoming.protection
+      };
+      renderAll();
+      ev.target.value = "";
+      alert("Backup restored.");
+    };
+    reader.onerror = () => {
+      alert("Couldn't read that file.");
+      ev.target.value = "";
+    };
+    reader.readAsText(file);
   });
 
   // Exposed so other scripts (e.g. the pie-chart renderer) can read the
