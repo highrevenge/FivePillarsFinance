@@ -256,6 +256,7 @@
     document.getElementById(tbodyId).addEventListener("click", ev=>{
       const btn = ev.target.closest(".del-btn");
       if(!btn) return;
+      if(!confirm("Delete this entry? This can't be undone.")) return;
       const key = tables[tbodyId];
       state[key] = state[key].filter(e=>e.id !== btn.dataset.id);
       renderAll();
@@ -338,6 +339,12 @@
       renderAll();
     }
   });
+
+  // Exposed so other scripts (e.g. the pie-chart renderer) can read the
+  // real numeric data directly instead of re-parsing formatted table text.
+  // This is a function (not a direct reference) because `state` gets
+  // reassigned on "reset all" — the function always returns the current one.
+  window.getDashboardState = function(){ return state; };
 
   renderAll();
 })();
