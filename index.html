@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B3B2F">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="login.css">
 <!-- EmailJS for sending verification emails -->
 <script type="text/javascript"
@@ -122,5 +126,16 @@
 
 <script src="emailVerification.js"></script>
 <script src="usersLoginSystem.js"></script>
+<script>
+  // Requires serving over HTTP(S) or localhost — service workers do not
+  // register when the page is opened via a file:// path.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Service worker registration failed (expected on file://):', err);
+      });
+    });
+  }
+</script>
 </body>
 </html>
