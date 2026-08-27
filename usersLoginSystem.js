@@ -468,12 +468,32 @@ document.addEventListener(
         /*
          * LOGIN
          */
+        /*
+         * Disables a form's submit button while a submit is in progress,
+         * so a fast double-click (or a slow network/avatar read) can't fire
+         * the handler twice. Call the returned function to re-enable it —
+         * skip calling it on a success path that navigates away, since the
+         * page is about to unload anyway.
+         */
+        function guardSubmit(form, busyText) {
+            const btn = form.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = busyText;
+            return function release() {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            };
+        }
+
+
         loginForm.addEventListener(
             "submit",
             event => {
 
                 event.preventDefault();
 
+                const release = guardSubmit(loginForm, "Signing in...");
 
                 const email =
                     normalizeUserEmail(
@@ -499,6 +519,8 @@ document.addEventListener(
 
                 if (!user) {
 
+                    release();
+
                     showMessage(
                         "loginMsg",
                         "No account was found with that email.",
@@ -513,6 +535,8 @@ document.addEventListener(
                     user.password !==
                     password
                 ) {
+
+                    release();
 
                     showMessage(
                         "loginMsg",
@@ -575,6 +599,7 @@ document.addEventListener(
 
                 event.preventDefault();
 
+                const release = guardSubmit(registerForm, "Creating account...");
 
                 const name =
                     document.getElementById(
@@ -613,6 +638,8 @@ document.addEventListener(
                     confirmPassword
                 ) {
 
+                    release();
+
                     showMessage(
                         "registerMsg",
                         "Passwords do not match.",
@@ -626,6 +653,8 @@ document.addEventListener(
                 if (
                     password.length < 6
                 ) {
+
+                    release();
 
                     showMessage(
                         "registerMsg",
@@ -642,6 +671,8 @@ document.addEventListener(
 
 
                 if (users[email]) {
+
+                    release();
 
                     showMessage(
                         "registerMsg",
@@ -664,6 +695,8 @@ document.addEventListener(
                         );
 
                 } catch (error) {
+
+                    release();
 
                     showMessage(
                         "registerMsg",
@@ -692,6 +725,7 @@ document.addEventListener(
 
                 saveUsers(users);
 
+                release();
 
                 registerForm.reset();
 
