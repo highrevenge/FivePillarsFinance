@@ -440,5 +440,53 @@
   // reassigned on "reset all" — the function always returns the current one.
   window.getDashboardState = function(){ return state; };
 
+  // Exposed so other scripts (e.g. the assistant's "undo") can remove one
+  // entry by pillar + id without duplicating the delete/re-render logic.
+  // Returns true if something was actually removed.
+  window.deleteDashboardEntry = function(pillar, id){
+    if(!state[pillar]) return false;
+    var before = state[pillar].length;
+    state[pillar] = state[pillar].filter(function(e){ return e.id !== id; });
+    var removed = state[pillar].length < before;
+    if(removed) renderAll();
+    return removed;
+  };
+
+  /* ---------- table search / filter ---------- */
+  // Simple client-side row filter: hides any row whose visible text doesn't
+  // contain the typed query. Works on whatever is currently in each tbody,
+  // and re-applies automatically whenever that tbody's rows are re-rendered
+  // (add / delete / reset / import), so the filter doesn't silently reset
+  // itself the next time the table redraws.
+  var TABLE_FILTERS = [
+    { tbodyId: "income-body",       inputId: "income-filter" },
+    { tbodyId: "savings-body",      inputId: "savings-filter" },
+    { tbodyId: "spending-body",     inputId: "spending-filter" },
+    { tbodyId: "investments-body",  inputId: "investments-filter" },
+    { tbodyId: "protection-body",   inputId: "protection-filter" }
+  ];
+
+  function setupTableFilter(config){
+    var input = document.getElementById(config.inputId);
+    var tbody = document.getElementById(config.tbodyId);
+    if(!input || !tbody) return;
+
+    function applyFilter(){
+      var query = input.value.trim().toLowerCase();
+      Array.prototype.forEach.call(tbody.querySelectorAll("tr"), function(row){
+        var text = row.textContent.toLowerCase();
+        row.style.display = (!query || text.indexOf(query) !== -1) ? "" : "none";
+      });
+    }
+
+    input.addEventListener("input", applyFilter);
+
+    if(window.MutationObserver){
+      new MutationObserver(applyFilter).observe(tbody, { childList: true });
+    }
+  }
+
+  TABLE_FILTERS.forEach(setupTableFilter);
+
   renderAll();
 })();
