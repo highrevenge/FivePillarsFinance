@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>5-Pillar Personal Finance Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B3B2F">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="dashboard.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -427,8 +431,8 @@
       <div class="ledger-rule"></div>
       <div class="hero-inner">
         <p class="eyebrow">A Google Sheets Template, Now Live</p>
-        <img src="C:\Users\kimjk\Downloads\ChatGPT Image Aug 16, 2026, 10_21_16 AM.png" alt="" style="max-width:220px;">
-        <h1>My 5-Pillar Personal Finance Dashboard</h1>
+        <img src="hero-image.png" alt="" class="hero-image">
+        <h1 style="color: white;">My 5-Pillar Personal Finance Dashboard</h1>
         <p class="hero-quote">"Track today, thrive tomorrow."</p>
         <p class="hero-sub">Enter data on the five pillar sheets — the tabs above — and this dashboard recalculates on the spot, exactly the way the spreadsheet does.</p>
       </div>
@@ -570,6 +574,10 @@
       <div class="form-actions"><button type="submit" class="add-btn">Add income entry</button></div>
     </form>
 
+    <div class="field" style="max-width:320px;">
+      <label for="income-filter">Filter entries</label>
+      <input type="search" id="income-filter" placeholder="Search by source, category, status...">
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Date</th><th>Source</th><th>Category</th><th>Expected</th><th>Actual</th><th>Status</th><th></th></tr></thead>
@@ -631,6 +639,10 @@
       </div>
     </form>
 
+    <div class="field" style="max-width:320px;">
+      <label for="savings-filter">Filter entries</label>
+      <input type="search" id="savings-filter" placeholder="Search by goal, account...">
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -721,6 +733,10 @@
       </div>
     </form>
 
+    <div class="field" style="max-width:320px;">
+      <label for="spending-filter">Filter entries</label>
+      <input type="search" id="spending-filter" placeholder="Search by description, category...">
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -812,6 +828,10 @@
       </div>
     </form>
 
+    <div class="field" style="max-width:320px;">
+      <label for="investments-filter">Filter entries</label>
+      <input type="search" id="investments-filter" placeholder="Search by type, platform...">
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -905,6 +925,10 @@
       </div>
     </form>
 
+    <div class="field" style="max-width:320px;">
+      <label for="protection-filter">Filter entries</label>
+      <input type="search" id="protection-filter" placeholder="Search by type, provider, status...">
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1146,6 +1170,126 @@
     init();
   }
 })();
+</script>
+
+<!-- ===================== FINANCE ASSISTANT WIDGET ===================== -->
+<style>
+  .ai-assistant-toggle{
+    position: fixed; right: 24px; bottom: 24px; z-index: 1000;
+    background: #1B3B2F; color: #FFFCF4;
+    border: 1px solid rgba(184,134,47,.55);
+    border-radius: 999px;
+    padding: 12px 18px;
+    font: 600 13px "IBM Plex Mono", monospace;
+    letter-spacing: .04em;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(27,59,47,.28);
+  }
+  .ai-assistant-toggle:hover{ background:#244D3D; }
+  .ai-assistant-panel{
+    position: fixed; right: 24px; bottom: 84px; z-index: 1000;
+    width: min(340px, calc(100vw - 48px));
+    max-height: 60vh;
+    display: flex; flex-direction: column;
+    background: #FFFCF4;
+    border: 1px solid rgba(27,59,47,.14);
+    border-top: 4px solid #B8862F;
+    border-radius: 10px;
+    box-shadow: 0 18px 60px rgba(27,59,47,.22);
+    overflow: hidden;
+  }
+  /* Without this, setting panel.hidden = true in JS has no visual effect —
+     the display:flex rule above wins over the browser's built-in
+     [hidden]-means-display:none behavior, since author CSS always
+     overrides that default regardless of specificity. */
+  .ai-assistant-panel[hidden]{
+    display: none;
+  }
+  .ai-assistant-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(27,59,47,.1);
+    font: 600 12px "IBM Plex Mono", monospace;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: #8A5F1E;
+  }
+  .ai-assistant-close{
+    border:0; background:none; cursor:pointer; font-size:14px; color:#4B564E; line-height:1;
+    padding: 2px 4px;
+  }
+  .ai-assistant-log{
+    flex: 1; overflow-y: auto;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ai-assistant-msg{
+    margin: 0; padding: 8px 10px; border-radius: 8px;
+    font-size: 13px; line-height: 1.45; max-width: 92%;
+  }
+  .ai-assistant-msg-bot{
+    background: rgba(184,134,47,.12);
+    color: #1B3B2F;
+    align-self: flex-start;
+  }
+  .ai-assistant-msg-user{
+    background: #1B3B2F;
+    color: #FFFCF4;
+    align-self: flex-end;
+  }
+  .ai-assistant-form{
+    display: flex; gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid rgba(27,59,47,.1);
+  }
+  .ai-assistant-form input{
+    flex: 1;
+    padding: 9px 10px;
+    border: 1px solid rgba(27,59,47,.14);
+    border-radius: 6px;
+    font-size: 13px;
+    background: #F6F1E4;
+  }
+  .ai-assistant-form button{
+    border: 0; border-radius: 6px;
+    padding: 9px 14px;
+    background: #1B3B2F; color: #FFFCF4;
+    font: 600 12px "IBM Plex Mono", monospace;
+    cursor: pointer;
+  }
+  @media (max-width: 480px){
+    .ai-assistant-panel{ right: 12px; bottom: 76px; }
+    .ai-assistant-toggle{ right: 12px; bottom: 12px; }
+  }
+</style>
+
+<div id="ai-assistant-widget">
+  <div id="ai-assistant-panel" class="ai-assistant-panel" hidden>
+    <div class="ai-assistant-header">
+      <strong>Finance Assistant</strong>
+      <button id="ai-assistant-close" class="ai-assistant-close" aria-label="Close assistant">✕</button>
+    </div>
+    <div class="ai-assistant-log" id="ai-assistant-log">
+      <p class="ai-assistant-msg ai-assistant-msg-bot">Hi! Tell me things like &ldquo;spent 500 on groceries yesterday&rdquo; or &ldquo;received 15000 salary today&rdquo; and I'll log it to the right pillar. You can also ask &ldquo;how much have I spent?&rdquo; or say &ldquo;undo&rdquo; to remove the last thing I logged.</p>
+    </div>
+    <form id="ai-assistant-form" class="ai-assistant-form">
+      <input type="text" id="ai-assistant-input" placeholder="e.g. spent 250 on transportation" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+  <button id="ai-assistant-toggle" class="ai-assistant-toggle" aria-expanded="false" aria-controls="ai-assistant-panel">💬 Assistant</button>
+</div>
+
+<script src="aiAssistant.js"></script>
+<script>
+  // Requires serving over HTTP(S) or localhost — service workers do not
+  // register when the page is opened via a file:// path.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Service worker registration failed (expected on file://):', err);
+      });
+    });
+  }
 </script>
 </body>
 </html>
