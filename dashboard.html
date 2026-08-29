@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5-Pillar Personal Finance Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1B3B2F">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Avatar in the "Signed in" badge — kept inline so it renders even without editing dashboard.css */
+  .user-badge{
+    display:inline-flex; 
+    align-items:center; 
+    gap:8px;
+  }
+  .user-avatar-img{
+    width:26px; 
+    height:26px; 
+    border-radius:50%; 
+    object-fit:cover; 
+    flex:none;
+  }
+  .user-avatar-fallback{
+    width:26px; 
+    height:26px; 
+    border-radius:50%; 
+    flex:none;
+    display:inline-flex; 
+    align-items:center; 
+    justify-content:center;
+    background:var(--brass, #B8862F); 
+    color:#fff; 
+    font-size:11px; 
+    font-weight:600;
+    font-family:var(--mono, monospace);
+  }
+
+  /* ---- Pin tabs left, settings menu right, without touching dashboard.css ---- */
+  nav.tabbar{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  nav.tabbar .tabbar-tabs{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:inherit;
+  }
+  .user-menu{
+    margin-left:auto;
+    flex:none;
+  }
+
+  /* ---- Account / settings dropdown ---- */
+  .user-menu{
+    position:relative;
+    display:inline-flex;
+  }
+  .user-menu-trigger{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:transparent;
+    border:1px solid rgba(0,0,0,0.15);
+    border-radius:999px;
+    padding:4px 10px 4px 6px;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:inherit;
+    color:inherit;
+    line-height:1;
+  }
+  .user-menu-trigger:hover,
+  .user-menu-trigger[aria-expanded="true"]{
+    background:rgba(0,0,0,0.05);
+  }
+  .user-menu-trigger .cog-icon{
+    flex:none;
+    opacity:0.75;
+  }
+  .user-menu-dropdown{
+    position:fixed;
+    min-width:180px;
+    background:#fff;
+    border:1px solid rgba(0,0,0,0.12);
+    border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.14);
+    padding:6px;
+    z-index:1000;
+    display:none;
+    flex-direction:column;
+    gap:2px;
+  }
+  .user-menu-dropdown:not([hidden]){
+    display:flex;
+  }
+  .user-menu-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    text-align:left;
+    background:transparent;
+    border:none;
+    border-radius:7px;
+    padding:9px 10px;
+    font-family:inherit;
+    font-size:14px;
+    color:inherit;
+    cursor:pointer;
+  }
+  .user-menu-item:hover{
+    background:rgba(0,0,0,0.06);
+  }
+  .user-menu-item.danger{
+    color:#e0221c !important;
+    font-weight:600;
+  }
+  .user-menu-item.danger:hover,
+  .user-menu-item.danger:focus{
+    color:#e0221c !important;
+    background:rgba(224,34,28,0.08);
+  }
+  .user-menu-divider{
+    height:1px;
+    background:rgba(0,0,0,0.1);
+    margin:4px 2px;
+  }
+
+  /* ---- Edit profile modal ---- */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(20,18,14,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:16px;
+  }
+  .modal-overlay[hidden]{ display:none; }
+  .profile-modal{
+    background:#fff;
+    border-radius:14px;
+    width:100%;
+    max-width:380px;
+    padding:24px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.25);
+    font-family:var(--sans, inherit);
+  }
+  .profile-modal h3{
+    margin:0 0 18px;
+  }
+  .profile-modal-avatar-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:18px;
+  }
+  .profile-avatar-preview,
+  .profile-avatar-preview-fallback{
+    width:56px;
+    height:56px;
+    border-radius:50%;
+    object-fit:cover;
+    flex:none;
+  }
+  .profile-avatar-preview-fallback{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:20px;
+  }
+  .profile-avatar-actions{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .profile-upload-btn{
+    display:inline-block;
+    cursor:pointer;
+    text-align:center;
+  }
+  .profile-remove-btn{
+    font-size:12px;
+  }
+  .profile-modal .field{
+    margin-bottom:6px;
+  }
+  .profile-modal-actions{
+    margin-top:18px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+  }
+
+  /* ---- Category pie charts (Income, Savings, Spending, Investments, Protection) ---- */
+  .pillar-pie-card{
+    margin:24px 0 32px;
+    padding:20px;
+    border:1px solid rgba(0,0,0,0.1);
+    border-radius:14px;
+    background:rgba(0,0,0,0.015);
+  }
+  .pillar-pie-wrap{
+    display:flex;
+    align-items:center;
+    gap:32px;
+    flex-wrap:wrap;
+    margin-top:14px;
+  }
+  .pillar-pie{
+    width:180px;
+    height:180px;
+    border-radius:50%;
+    flex:none;
+    background:conic-gradient(#e5e0d5 0 100%);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .pillar-pie.is-empty{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .pillar-pie-legend{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    min-width:220px;
+    flex:1;
+  }
+  .pillar-pie-legend .legend-empty{
+    font-size:13px;
+    opacity:0.65;
+  }
+  .legend-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+  }
+  .legend-swatch{
+    width:12px;
+    height:12px;
+    border-radius:3px;
+    flex:none;
+  }
+  .legend-label{
+    flex:1;
+    font-weight:500;
+  }
+  .legend-amount{
+    font-family:var(--mono, monospace);
+    opacity:0.75;
+    white-space:nowrap;
+  }
+  .legend-pct{
+    font-family:var(--mono, monospace);
+    font-weight:600;
+    min-width:44px;
+    text-align:right;
+  }
+
+  /* ==========================================================
+     MOBILE RESPONSIVENESS — keeps everything inside the
+     viewport on phones. Layered on top of dashboard.css.
+     ========================================================== */
+  html{
+    -webkit-text-size-adjust:100%;
+  }
+  html, body{
+    max-width:100%;
+    overflow-x:hidden;
+  }
+  *, *::before, *::after{
+    box-sizing:border-box;
+  }
+  img, svg{
+    max-width:100%;
+    height:auto;
+  }
+
+  @media (max-width: 768px){
+    main{
+      padding-left:16px !important;
+      padding-right:16px !important;
+      width:100%;
+      max-width:100%;
+    }
+    .hero, .formula-card, .pillar-pie-card, .guide{
+      padding-left:16px !important;
+      padding-right:16px !important;
+    }
+    .kpi-grid,
+    .split-grid,
+    .formula-row,
+    .form-grid{
+      grid-template-columns:1fr !important;
+    }
+    .kpi-grid{
+      gap:10px !important;
+    }
+    .pillar-totals{
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .pillar-totals .stat{
+      flex:1 1 45%;
+      min-width:130px;
+    }
+    .pillar-pie-wrap{
+      flex-direction:column;
+      align-items:center;
+      gap:16px;
+      text-align:left;
+    }
+    .pillar-pie{
+      width:160px;
+      height:160px;
+    }
+    .pillar-pie-legend{
+      width:100%;
+      min-width:0;
+    }
+    .fexpr{
+      font-size:15px !important;
+      word-break:break-word;
+    }
+    .table-wrap{
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      width:100%;
+      max-width:100%;
+    }
+    table{
+      font-size:12.5px;
+    }
+    .hero-inner img{
+      max-width:180px;
+      margin-inline:auto;
+    }
+    .modal-overlay{
+      padding:12px;
+    }
+    .profile-modal{
+      padding:18px;
+      max-width:100%;
+    }
+    .form-actions .add-btn,
+    .reset-row .reset-btn{
+      width:100%;
+    }
+  }
+
+  @media (max-width: 480px){
+    nav.tabbar .tabbar-tabs .tab{
+      font-size:12.5px;
+      padding:6px 10px;
+    }
+    nav.tabbar .tabbar-tabs .brandmark{
+      font-size:12px;
+    }
+    .kpi .num{
+      font-size:18px;
+    }
+    .pillar-totals .stat{
+      flex:1 1 100%;
+    }
+    .pillar-pie{
+      width:140px;
+      height:140px;
+    }
+    .legend-row{
+      font-size:12px;
+    }
+    .legend-swatch{
+      width:10px;
+      height:10px;
+    }
+    .formula-mini{
+      font-size:12px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<nav class="tabbar" aria-label="Pillar navigation">
+  <div class="tabbar-tabs" role="tablist" aria-label="Dashboard sections">
+    <span class="brandmark">5-PILLAR INC</span> &nbsp; &nbsp; &nbsp;
+    <button class="tab is-active" id="tab-dashboard" data-panel="dashboard" role="tab" aria-selected="true" aria-controls="panel-dashboard" tabindex="0">Dashboard</button>
+    <button class="tab" id="tab-income" data-panel="income" role="tab" aria-selected="false" aria-controls="panel-income" tabindex="-1">Income</button>
+    <button class="tab" id="tab-savings" data-panel="savings" role="tab" aria-selected="false" aria-controls="panel-savings" tabindex="-1">Savings</button>
+    <button class="tab" id="tab-spending" data-panel="spending" role="tab" aria-selected="false" aria-controls="panel-spending" tabindex="-1">Spending</button>
+    <button class="tab" id="tab-investments" data-panel="investments" role="tab" aria-selected="false" aria-controls="panel-investments" tabindex="-1">Investments</button>
+    <button class="tab" id="tab-protection" data-panel="protection" role="tab" aria-selected="false" aria-controls="panel-protection" tabindex="-1">Protection</button>
+    <button class="tab" id="tab-guide" data-panel="guide" role="tab" aria-selected="false" aria-controls="panel-guide" tabindex="-1">Guide</button>
+  </div>
+  <div class="user-menu" id="user-menu">
+    <button type="button" class="user-menu-trigger" id="user-menu-trigger" aria-haspopup="true" aria-expanded="false" aria-controls="user-menu-dropdown">
+      <span id="user-badge" class="user-badge">
+        <img id="user-avatar" class="user-avatar-img" alt="" hidden>
+        <span id="user-avatar-fallback" class="user-avatar-fallback" hidden></span>
+        <span id="user-name-text"></span>
+      </span>
+      <svg class="cog-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+    <div class="user-menu-dropdown" id="user-menu-dropdown" role="menu" hidden>
+      <button type="button" class="user-menu-item" id="edit-profile-btn" role="menuitem">✎&nbsp; Edit profile</button>
+      <div class="user-menu-divider"></div>
+      <button type="button" class="user-menu-item danger" id="logout-btn" role="menuitem">⎋&nbsp; Log out</button>
+    </div>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section class="panel is-active" id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+    <div class="hero">
+      <div class="ledger-rule"></div>
+      <div class="hero-inner">
+        <p class="eyebrow">A Google Sheets Template, Now Live</p>
+        <img src="hero-image.png" alt="" class="hero-image">
+        <h1 style="color: white;">My 5-Pillar Personal Finance Dashboard</h1>
+        <p class="hero-quote">"Track today, thrive tomorrow."</p>
+        <p class="hero-sub">Enter data on the five pillar sheets — the tabs above — and this dashboard recalculates on the spot, exactly the way the spreadsheet does.</p>
+      </div>
+    </div>
+
+    <p class="eyebrow">This Period</p>
+    <h2>Where you stand</h2>
+    <p class="lede">Five totals, pulled live from whatever you've logged on the pillar sheets.</p>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="icon">💰</div>
+        <div class="label">Total Income</div>
+        <div class="num" id="kpi-income">₱0</div>
+      </div>
+      <div class="kpi">
+        <div class="icon">🛒</div>
+        <div class="label">Total Spending</div>
+        <div class="num" id="kpi-spending">₱0</div>
+      </div>
+      <div class="kpi">
+        <div class="icon">🐷</div>
+        <div class="label">Total Savings</div>
+        <div class="num" id="kpi-savings">₱0</div>
+      </div>
+      <div class="kpi">
+        <div class="icon">📈</div>
+        <div class="label">Total Investments</div>
+        <div class="num" id="kpi-investments">₱0</div>
+      </div>
+      <div class="kpi">
+        <div class="icon">🛡</div>
+        <div class="label">Protection Costs</div>
+        <div class="num" id="kpi-protection">₱0</div>
+      </div>
+    </div>
+
+    <div class="formula-card">
+      <div class="ftitle">Available Cash</div>
+      <div class="fexpr">
+        Income − Savings − Spending − Investments − Protection = 
+        <span id="available-cash">₱0</span>
+      </div>
+      <div class="formula-row">
+        <div class="formula-mini">Savings Rate<br><b id="savings-rate">0%</b></div>
+        <div class="formula-mini">Investment Rate<br><b id="investment-rate">0%</b></div>
+        <div class="formula-mini">Portfolio Value<br><b id="portfolio-value">₱0</b></div>
+        <div class="formula-mini">Overall Return<br><b id="overall-return">0%</b></div>
+      </div>
+    </div>
+
+    <div class="split-grid">
+      <div>
+        <p class="eyebrow" style="margin-top:40px;">50 / 30 / 20 Guideline</p>
+        <h3>Your actual split</h3>
+        <div class="bar" role="img" aria-label="actual needs, wants, and savings split">
+          <div class="seg" id="seg-needs" style="width:33%; background:var(--ink);">Needs</div>
+          <div class="seg" id="seg-wants" style="width:33%; background:var(--brass-text);">Wants</div>
+          <div class="seg" id="seg-save" style="width:34%; background:#6E8478;">Save</div>
+        </div>
+        <p class="bar-caption" id="split-caption">Needs 0% · Wants 0% · Savings &amp; Goals 0% — guideline is 50 / 30 / 20</p>
+      </div>
+      <div>
+        <p class="eyebrow" style="margin-top:40px;">Budget Progress</p>
+        <h3>Spending, budgeted vs. actual</h3>
+        <div class="budget-rows" id="budget-rows"></div>
+      </div>
+    </div>
+
+    <div class="reset-row">
+      <button class="reset-btn" id="export-data-btn">Download backup (.json)</button>
+      <label class="reset-btn" id="import-data-btn" for="import-data-input" style="cursor:pointer;">Restore from backup</label>
+      <input type="file" id="import-data-input" accept="application/json" hidden>
+      <button class="reset-btn" id="reset-all">Reset all data to sample rows</button>
+    </div>
+  </section>
+
+  <!-- ===================== INCOME ===================== -->
+  <section class="panel" id="panel-income" role="tabpanel" aria-labelledby="tab-income">
+    <p class="eyebrow">Pillar 01</p>
+    <div class="pillar-head">
+      <h2><span class="glyph">💵</span>Income</h2>
+    </div>
+    <p class="lede">Every source of money coming in, expected against what actually landed.</p>
+    <div class="pillar-totals">
+      <div class="stat">
+        <div class="slabel">Total Actual</div>
+        <div class="sval" id="income-total">₱0</div>
+      </div>
+    </div>
+
+    <div class="pillar-pie-card">
+      <p class="eyebrow" style="margin-top:0;">By Category</p>
+      <h3 style="margin-top:0;">Income share per category</h3>
+      <div class="pillar-pie-wrap">
+        <div class="pillar-pie" id="income-pie" role="img" aria-label="Income distribution by category"></div>
+        <div class="pillar-pie-legend" id="income-pie-legend"></div>
+      </div>
+    </div>
+
+    <form class="entry-form" id="form-income">
+      <div class="form-grid">
+        <div class="field">
+          <label for="in-date">Date</label>
+          <input type="date" id="in-date" required>
+        </div>
+        <div class="field">
+          <label for="in-source">Income Source</label>
+          <input type="text" id="in-source" placeholder="e.g. Salary" required>
+        </div>
+        <div class="field">
+          <label for="in-category">Category</label>
+          <select id="in-category">
+            <option>Salary</option>
+            <option>Business</option>
+            <option>Freelance</option>
+            <option>Allowance</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="in-expected">Expected Amount</label>
+          <input type="number" id="in-expected" min="0" step="0.01" placeholder="0">
+        </div>
+        <div class="field">
+          <label for="in-actual">Actual Amount</label>
+          <input type="number" id="in-actual" min="0" step="0.01" placeholder="0" required>
+        </div>
+        <div class="field">
+          <label for="in-status">Payment Status</label>
+          <select id="in-status">
+            <option>Expected</option>
+            <option>Received</option>
+            <option>Partial</option>
+            <option>Overdue</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions"><button type="submit" class="add-btn">Add income entry</button></div>
+    </form>
+
+    <div class="field" style="max-width:320px;">
+      <label for="income-filter">Filter entries</label>
+      <input type="search" id="income-filter" placeholder="Search by source, category, status...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Date</th><th>Source</th><th>Category</th><th>Expected</th><th>Actual</th><th>Status</th><th></th></tr></thead>
+        <tbody id="income-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== SAVINGS ===================== -->
+  <section class="panel" id="panel-savings" role="tabpanel" aria-labelledby="tab-savings">
+    <p class="eyebrow">Pillar 02</p>
+    <div class="pillar-head"><h2><span class="glyph">🐷</span>Savings</h2></div>
+    <p class="lede">Named goals, tracked toward a deadline. Progress % and Remaining Amount calculate themselves.</p>
+    <div class="pillar-totals">
+      <div class="stat"><div class="slabel">Total Saved</div><div class="sval" id="savings-total">₱0</div></div>
+      <div class="stat"><div class="slabel">Total Targets</div><div class="sval" id="savings-target-total">₱0</div></div>
+    </div>
+
+    <div class="pillar-pie-card">
+      <p class="eyebrow" style="margin-top:0;">By Account or Fund</p>
+      <h3 style="margin-top:0;">Savings share per account</h3>
+      <div class="pillar-pie-wrap">
+        <div class="pillar-pie" id="savings-pie" role="img" aria-label="Savings distribution by account or fund"></div>
+        <div class="pillar-pie-legend" id="savings-pie-legend"></div>
+      </div>
+    </div>
+
+    <form class="entry-form" id="form-savings">
+      <div class="form-grid">
+        <div class="field">
+          <label for="sv-goal">Savings Goal</label>
+          <input type="text" id="sv-goal" placeholder="e.g. Emergency Fund" required>
+        </div>
+        <div class="field">
+          <label for="sv-account">Account or Fund</label>
+          <select id="sv-account">
+            <option>Bank Savings</option>
+            <option>Emergency Fund</option>
+            <option>Digital Bank</option>
+            <option>Cooperative</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sv-target">Target Amount</label>
+          <input type="number" id="sv-target" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="sv-saved">Amount Saved</label>
+          <input type="number" id="sv-saved" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="sv-deadline">Goal Deadline</label>
+          <input type="date" id="sv-deadline">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="add-btn">Add savings goal</button>
+      </div>
+    </form>
+
+    <div class="field" style="max-width:320px;">
+      <label for="savings-filter">Filter entries</label>
+      <input type="search" id="savings-filter" placeholder="Search by goal, account...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Goal</th>
+            <th>Account</th>
+            <th>Target</th>
+            <th>Saved</th>
+            <th>Progress</th>
+            <th>Remaining</th>
+            <th>Deadline</th>
+            <th>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="savings-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== SPENDING ===================== -->
+  <section class="panel" id="panel-spending" role="tabpanel" aria-labelledby="tab-spending">
+    <p class="eyebrow">Pillar 03</p>
+    <div class="pillar-head">
+      <h2><span class="glyph">🛒</span>Spending</h2>
+    </div>
+    <p class="lede">Every expense, tagged Need or Want. Difference = Budgeted Amount − Actual Amount.</p>
+    <div class="pillar-totals">
+      <div class="stat">
+        <div class="slabel">Total Spending</div>
+      <div class="sval" id="spending-total">₱0</div>
+    </div>
+      <div class="stat">
+        <div class="slabel">Needs %</div>
+        <div class="sval" id="needs-pct">0%</div>
+      </div>
+      <div class="stat">
+        <div class="slabel">Wants %</div>
+        <div class="sval" id="wants-pct">0%</div>
+      </div>
+    </div>
+
+    <div class="pillar-pie-card">
+      <p class="eyebrow" style="margin-top:0;">By Category</p>
+      <h3 style="margin-top:0;">Spending share per category</h3>
+      <div class="pillar-pie-wrap">
+        <div class="pillar-pie" id="spending-pie" role="img" aria-label="Spending distribution by category"></div>
+        <div class="pillar-pie-legend" id="spending-pie-legend"></div>
+      </div>
+    </div>
+
+    <form class="entry-form" id="form-spending">
+      <div class="form-grid">
+        <div class="field">
+          <label for="sp-desc">Description</label>
+          <input type="text" id="sp-desc" placeholder="e.g. Groceries" required>
+        </div>
+        <div class="field">
+          <label for="sp-category">Category</label>
+          <select id="sp-category"><option>Housing</option><option>Utilities</option><option>Groceries</option><option>Transportation</option><option>Healthcare</option><option>Education</option><option>Dining Out</option><option>Shopping</option><option>Entertainment</option><option>Personal Care</option><option>Subscriptions</option><option>Miscellaneous</option></select>
+        </div>
+        <div class="field">
+          <label for="sp-need">Need or Want</label>
+          <select id="sp-need"><option>Need</option><option>Want</option></select>
+        </div>
+        <div class="field">
+          <label for="sp-method">Payment Method</label>
+          <select id="sp-method"><option>Cash</option><option>GCash</option><option>Maya</option><option>Debit Card</option><option>Credit Card</option><option>Bank Transfer</option><option>Other</option></select>
+        </div>
+        <div class="field">
+          <label for="sp-budget">Budgeted Amount</label>
+          <input type="number" id="sp-budget" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="sp-actual">Actual Amount</label>
+          <input type="number" id="sp-actual" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="sp-recurring">Recurring or One-Time</label>
+          <select id="sp-recurring">
+            <option>Recurring</option>
+            <option>One-Time</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="add-btn">Add spending entry</button>
+      </div>
+    </form>
+
+    <div class="field" style="max-width:320px;">
+      <label for="spending-filter">Filter entries</label>
+      <input type="search" id="spending-filter" placeholder="Search by description, category...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Category</th>
+            <th>Need/Want</th>
+            <th>Method</th>
+            <th>Budgeted</th>
+            <th>Actual</th>
+            <th>Difference</th>
+            <th>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="spending-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== INVESTMENTS ===================== -->
+  <section class="panel" id="panel-investments" role="tabpanel" aria-labelledby="tab-investments">
+    <p class="eyebrow">Pillar 04</p>
+    <div class="pillar-head">
+      <h2><span class="glyph">📈</span>Investments</h2>
+    </div>
+    <p class="lede">Contributions across accounts, marked to current value. Gain/Loss and Return % are calculated.</p>
+    <div class="pillar-totals">
+      <div class="stat">
+        <div class="slabel">Total Contributions</div>
+        <div class="sval" id="inv-total">₱0</div>
+      </div>
+      <div class="stat">
+        <div class="slabel">Portfolio Value</div>
+        <div class="sval" id="inv-portfolio">₱0</div>
+      </div>
+      <div class="stat">
+        <div class="slabel">Overall Return</div>
+        <div class="sval" id="inv-return">0%</div>
+      </div>
+    </div>
+
+    <div class="pillar-pie-card">
+      <p class="eyebrow" style="margin-top:0;">By Investment Type</p>
+      <h3 style="margin-top:0;">Portfolio share per type</h3>
+      <div class="pillar-pie-wrap">
+        <div class="pillar-pie" id="investments-pie" role="img" aria-label="Investment distribution by type"></div>
+        <div class="pillar-pie-legend" id="investments-pie-legend"></div>
+      </div>
+    </div>
+
+    <form class="entry-form" id="form-investments">
+      <div class="form-grid">
+        <div class="field">
+          <label for="iv-type">Investment Type</label>
+          <select id="iv-type">
+            <option>Stocks</option>
+            <option>Bonds</option>
+            <option>Mutual Fund</option>
+            <option>UITF</option>
+            <option>ETF</option>
+            <option>Time Deposit</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="iv-platform">Platform or Account</label>
+          <input type="text" id="iv-platform" placeholder="e.g. Brokerage" required>
+        </div>
+        <div class="field">
+          <label for="iv-invested">Amount Invested</label>
+          <input type="number" id="iv-invested" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="iv-current">Current Value</label>
+          <input type="number" id="iv-current" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label for="iv-risk">Risk Level</label>
+          <select id="iv-risk">
+            <option>Low</option>
+            <option>Moderate</option>
+            <option>High</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="add-btn">Add investment</button>
+      </div>
+    </form>
+
+    <div class="field" style="max-width:320px;">
+      <label for="investments-filter">Filter entries</label>
+      <input type="search" id="investments-filter" placeholder="Search by type, platform...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Platform</th>
+            <th>Invested</th>
+            <th>Current Value</th>
+            <th>Gain/Loss</th>
+            <th>Return %</th>
+            <th>Risk</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="investments-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== PROTECTION ===================== -->
+  <section class="panel" id="panel-protection" role="tabpanel" aria-labelledby="tab-protection">
+    <p class="eyebrow">Pillar 05</p>
+    <div class="pillar-head">
+      <h2><span class="glyph">🛡</span>Protection</h2>
+    </div>
+    <p class="lede">Insurance, emergency reserves, and every other financial safeguard.</p>
+    <div class="pillar-totals">
+      <div class="stat">
+        <div class="slabel">Protection Costs</div>
+        <div class="sval" id="prot-total">₱0</div>
+      </div>
+      <div class="stat">
+        <div class="slabel">Active Items</div>
+        <div class="sval" id="prot-active">0</div>
+      </div>
+    </div>
+
+    <div class="pillar-pie-card">
+      <p class="eyebrow" style="margin-top:0;">By Protection Type</p>
+      <h3 style="margin-top:0;">Premium share per type</h3>
+      <div class="pillar-pie-wrap">
+        <div class="pillar-pie" id="protection-pie" role="img" aria-label="Protection cost distribution by type"></div>
+        <div class="pillar-pie-legend" id="protection-pie-legend"></div>
+      </div>
+    </div>
+
+    <form class="entry-form" id="form-protection">
+      <div class="form-grid">
+        <div class="field">
+          <label for="pr-type">Protection Type</label>
+          <select id="pr-type">
+            <option>Health Insurance</option>
+            <option>Life Insurance</option>
+            <option>Property Insurance</option>
+            <option>Vehicle Insurance</option>
+            <option>Emergency Fund</option>
+            <option>Other Coverage</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="pr-provider">Provider</label>
+          <input type="text" id="pr-provider" placeholder="e.g. Sample Provider" required>
+        </div>
+        <div class="field"><label for="pr-coverage">Coverage Amount</label>
+          <input type="number" id="pr-coverage" min="0" step="0.01"></div>
+        <div class="field">
+          <label for="pr-premium">Premium or Contribution</label>
+          <input type="number" id="pr-premium" min="0" step="0.01" required></div>
+        <div class="field">
+          <label for="pr-frequency">Payment Frequency</label>
+          <select id="pr-frequency">
+            <option>Monthly</option>
+            <option>Quarterly</option>
+            <option>Semi-Annual</option>
+            <option>Annual</option>
+            <option>One-Time</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="pr-status">Status</label>
+          <select id="pr-status">
+            <option>Active</option>
+            <option>Pending</option>
+            <option>Expired</option>
+            <option>Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="add-btn">Add protection entry</button>
+      </div>
+    </form>
+
+    <div class="field" style="max-width:320px;">
+      <label for="protection-filter">Filter entries</label>
+      <input type="search" id="protection-filter" placeholder="Search by type, provider, status...">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Provider</th>
+            <th>Coverage</th>
+            <th>Premium</th>
+            <th>Frequency</th>
+            <th>Status</th>
+            <th>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="protection-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== GUIDE ===================== -->
+  <section class="panel" id="panel-guide" role="tabpanel" aria-labelledby="tab-guide">
+    <div class="guide" style="margin-top:0;">
+      <p class="eyebrow">Guide &amp; Definitions</p>
+      <h2>How to read every sheet</h2>
+      <dl class="glossary">
+        <div class="gterm">
+          <dt>Dashboard</dt>
+          <dd>Visual overview: KPIs, spending breakdown, 50/30/20 comparison, budget progress — all live from your entries.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Available Cash</dt>
+          <dd>Income − Savings − Spending − Investments − Protection Costs.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Income</dt>
+          <dd>Expected and actual income; actual income is what feeds the dashboard.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Savings</dt>
+          <dd>Goal, target, amount saved, and deadline — Progress % is calculated for you.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Spending</dt>
+          <dd>Every expense classified Need or Want; Difference = Budgeted − Actual.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Investments</dt>
+          <dd>Contributions and current value; Gain/Loss and Return % are calculated.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Protection</dt>
+          <dd>Insurance and other safeguards, including coverage amounts and premiums.</dd>
+        </div>
+        <div class="gterm">
+          <dt>Your data</dt>
+          <dd>Kept in this browser only, on this device, so the dashboard stays live between visits until you reset it.</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>My 5-Pillar Personal Finance Dashboard — Income · Savings · Spending · Investments · Protection</p>
+</footer>
+
+<!-- ===================== EDIT PROFILE MODAL ===================== -->
+<div class="modal-overlay" id="profile-modal-overlay" hidden>
+  <div class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+    <h3 id="profile-modal-title">Edit profile</h3>
+
+    <div class="profile-modal-avatar-row">
+      <img id="profile-avatar-preview" class="profile-avatar-preview" alt="" hidden>
+      <span id="profile-avatar-preview-fallback" class="profile-avatar-preview-fallback"></span>
+      <div class="profile-avatar-actions">
+        <label for="profile-avatar-input" class="add-btn profile-upload-btn">Choose photo</label>
+        <input type="file" id="profile-avatar-input" accept="image/*" hidden>
+        <button type="button" id="profile-avatar-remove" class="reset-btn profile-remove-btn">Remove photo</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="profile-name-input">Display name</label>
+      <input type="text" id="profile-name-input" placeholder="Your name">
+    </div>
+
+    <div class="profile-modal-actions">
+      <button type="button" class="reset-btn" id="profile-cancel-btn">Cancel</button>
+      <button type="button" class="add-btn" id="profile-save-btn">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase (Authentication + Firestore) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="systemDashboard.js"></script>
+<script src="userDataProfiles.js"></script>
+
+<!-- ===================== PILLAR CATEGORY PIE CHARTS ===================== -->
+<script>
+(function(){
+  // One config per pillar table. catIdx/valIdx are <td> column indices (0-based)
+  // matching each table's <thead> order.
+  var PIE_CONFIGS = [
+    {
+      tbodyId: 'income-body', pieId: 'income-pie', legendId: 'income-pie-legend',
+      stateKey: 'income', catField: 'category', valField: 'actual',
+      emptyMsg: 'No income entries yet — add one to see the breakdown.',
+      colors: { 'Salary':'#B8862F', 'Business':'#6E8478', 'Freelance':'#4A6FA5', 'Allowance':'#C1666B', 'Other':'#8073AE' }
+    },
+    {
+      tbodyId: 'savings-body', pieId: 'savings-pie', legendId: 'savings-pie-legend',
+      stateKey: 'savings', catField: 'account', valField: 'saved',
+      emptyMsg: 'No savings goals yet — add one to see the breakdown.',
+      colors: { 'Bank Savings':'#6E8478', 'Emergency Fund':'#C1666B', 'Digital Bank':'#4A6FA5', 'Cooperative':'#B8862F', 'Other':'#8073AE' }
+    },
+    {
+      tbodyId: 'spending-body', pieId: 'spending-pie', legendId: 'spending-pie-legend',
+      stateKey: 'spending', catField: 'category', valField: 'actual',
+      emptyMsg: 'No spending entries yet — add one to see the breakdown.',
+      colors: {
+        'Housing':'#B8862F', 'Utilities':'#6E8478', 'Groceries':'#4A6FA5', 'Transportation':'#C1666B',
+        'Healthcare':'#8073AE', 'Education':'#5C8374', 'Dining Out':'#9C5959', 'Shopping':'#496A81',
+        'Entertainment':'#A6763D', 'Personal Care':'#6C5B7B', 'Subscriptions':'#7A8B99', 'Miscellaneous':'#8A8A8A'
+      }
+    },
+    {
+      tbodyId: 'investments-body', pieId: 'investments-pie', legendId: 'investments-pie-legend',
+      stateKey: 'investments', catField: 'type', valField: 'current',
+      emptyMsg: 'No investments logged yet — add one to see the breakdown.',
+      colors: { 'Stocks':'#4A6FA5', 'Bonds':'#6E8478', 'Mutual Fund':'#B8862F', 'UITF':'#C1666B', 'ETF':'#8073AE', 'Time Deposit':'#5C8374', 'Other':'#8A8A8A' }
+    },
+    {
+      tbodyId: 'protection-body', pieId: 'protection-pie', legendId: 'protection-pie-legend',
+      stateKey: 'protection', catField: 'type', valField: 'premium',
+      emptyMsg: 'No protection entries yet — add one to see the breakdown.',
+      colors: { 'Health Insurance':'#4A6FA5', 'Life Insurance':'#C1666B', 'Property Insurance':'#B8862F', 'Vehicle Insurance':'#6E8478', 'Emergency Fund':'#8073AE', 'Other Coverage':'#8A8A8A' }
+    }
+  ];
+
+  var FALLBACK_COLORS = ['#A6763D','#5C8374','#496A81','#9C5959','#6C5B7B','#7A8B99'];
+
+  function colorFor(config, category, index){
+    return config.colors[category] || FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+  }
+
+  function formatPeso(n){
+    return '₱' + n.toLocaleString('en-PH', { maximumFractionDigits: 2 });
+  }
+
+  // Reads straight from the dashboard's real state object (via the accessor
+  // systemDashboard.js exposes) instead of re-parsing formatted ₱ strings
+  // back out of rendered table cells — no risk of drifting out of sync with
+  // however money() happens to format things, and no comma/locale gotchas.
+  function computeCategoryTotals(config){
+    var totals = {};
+    var order = [];
+    var state = window.getDashboardState ? window.getDashboardState() : null;
+    var list = (state && state[config.stateKey]) || [];
+
+    list.forEach(function(entry){
+      var category = (entry[config.catField] || 'Other').toString().trim() || 'Other';
+      var value = Math.abs(Number(entry[config.valField]) || 0);
+      if(!(category in totals)){
+        totals[category] = 0;
+        order.push(category);
+      }
+      totals[category] += value;
+    });
+
+    var grand = order.reduce(function(sum, cat){ return sum + totals[cat]; }, 0);
+    return { totals: totals, order: order, grand: grand };
+  }
+
+  function renderPie(config){
+    var pieEl = document.getElementById(config.pieId);
+    var legendEl = document.getElementById(config.legendId);
+    if(!pieEl || !legendEl) return;
+
+    var data = computeCategoryTotals(config);
+
+    if(data.grand <= 0 || data.order.length === 0){
+      pieEl.style.background = 'conic-gradient(#e5e0d5 0 100%)';
+      pieEl.classList.add('is-empty');
+      legendEl.innerHTML = '<div class="legend-empty">' + config.emptyMsg + '</div>';
+      return;
+    }
+    pieEl.classList.remove('is-empty');
+
+    var gradientParts = [];
+    var legendParts = [];
+    var cursor = 0;
+
+    data.order.forEach(function(category, i){
+      var amount = data.totals[category];
+      var pct = (amount / data.grand) * 100;
+      var start = cursor;
+      var end = cursor + pct;
+      cursor = end;
+      var color = colorFor(config, category, i);
+
+      gradientParts.push(color + ' ' + start.toFixed(2) + '% ' + end.toFixed(2) + '%');
+
+      legendParts.push(
+        '<div class="legend-row">' +
+          '<span class="legend-swatch" style="background:' + color + ';"></span>' +
+          '<span class="legend-label">' + category + '</span>' +
+          '<span class="legend-amount">' + formatPeso(amount) + '</span>' +
+          '<span class="legend-pct">' + pct.toFixed(1) + '%</span>' +
+        '</div>'
+      );
+    });
+
+    pieEl.style.background = 'conic-gradient(' + gradientParts.join(', ') + ')';
+    legendEl.innerHTML = legendParts.join('');
+  }
+
+  function renderAllPies(){
+    PIE_CONFIGS.forEach(renderPie);
+  }
+
+  function init(){
+    renderAllPies();
+    if(window.MutationObserver){
+      PIE_CONFIGS.forEach(function(config){
+        var body = document.getElementById(config.tbodyId);
+        if(!body) return;
+        var observer = new MutationObserver(function(){ renderPie(config); });
+        observer.observe(body, { childList: true, subtree: true, characterData: true });
+      });
+    }
+    // Catch late/async population (e.g. data loaded from storage after a tick)
+    setTimeout(renderAllPies, 300);
+    setTimeout(renderAllPies, 1000);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+
+<!-- ===================== FINANCE ASSISTANT WIDGET ===================== -->
+<style>
+  .ai-assistant-toggle{
+    position: fixed; right: 24px; bottom: 24px; z-index: 1000;
+    background: #1B3B2F; color: #FFFCF4;
+    border: 1px solid rgba(184,134,47,.55);
+    border-radius: 999px;
+    padding: 12px 18px;
+    font: 600 13px "IBM Plex Mono", monospace;
+    letter-spacing: .04em;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(27,59,47,.28);
+  }
+  .ai-assistant-toggle:hover{ background:#244D3D; }
+  .ai-assistant-panel{
+    position: fixed; right: 24px; bottom: 84px; z-index: 1000;
+    width: min(340px, calc(100vw - 48px));
+    max-height: 60vh;
+    display: flex; flex-direction: column;
+    background: #FFFCF4;
+    border: 1px solid rgba(27,59,47,.14);
+    border-top: 4px solid #B8862F;
+    border-radius: 10px;
+    box-shadow: 0 18px 60px rgba(27,59,47,.22);
+    overflow: hidden;
+  }
+  /* Without this, setting panel.hidden = true in JS has no visual effect —
+     the display:flex rule above wins over the browser's built-in
+     [hidden]-means-display:none behavior, since author CSS always
+     overrides that default regardless of specificity. */
+  .ai-assistant-panel[hidden]{
+    display: none;
+  }
+  .ai-assistant-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(27,59,47,.1);
+    font: 600 12px "IBM Plex Mono", monospace;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: #8A5F1E;
+  }
+  .ai-assistant-close{
+    border:0; background:none; cursor:pointer; font-size:14px; color:#4B564E; line-height:1;
+    padding: 2px 4px;
+  }
+  .ai-assistant-log{
+    flex: 1; overflow-y: auto;
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ai-assistant-msg{
+    margin: 0; padding: 8px 10px; border-radius: 8px;
+    font-size: 13px; line-height: 1.45; max-width: 92%;
+  }
+  .ai-assistant-msg-bot{
+    background: rgba(184,134,47,.12);
+    color: #1B3B2F;
+    align-self: flex-start;
+  }
+  .ai-assistant-msg-user{
+    background: #1B3B2F;
+    color: #FFFCF4;
+    align-self: flex-end;
+  }
+  .ai-assistant-form{
+    display: flex; gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid rgba(27,59,47,.1);
+  }
+  .ai-assistant-form input{
+    flex: 1;
+    padding: 9px 10px;
+    border: 1px solid rgba(27,59,47,.14);
+    border-radius: 6px;
+    font-size: 13px;
+    background: #F6F1E4;
+  }
+  .ai-assistant-form button{
+    border: 0; border-radius: 6px;
+    padding: 9px 14px;
+    background: #1B3B2F; color: #FFFCF4;
+    font: 600 12px "IBM Plex Mono", monospace;
+    cursor: pointer;
+  }
+  @media (max-width: 480px){
+    .ai-assistant-panel{ right: 12px; bottom: 76px; }
+    .ai-assistant-toggle{ right: 12px; bottom: 12px; }
+  }
+</style>
+
+<div id="ai-assistant-widget">
+  <div id="ai-assistant-panel" class="ai-assistant-panel" hidden>
+    <div class="ai-assistant-header">
+      <strong>Finance Assistant</strong>
+      <button id="ai-assistant-close" class="ai-assistant-close" aria-label="Close assistant">✕</button>
+    </div>
+    <div class="ai-assistant-log" id="ai-assistant-log">
+      <p class="ai-assistant-msg ai-assistant-msg-bot">Hi! Tell me things like &ldquo;spent 500 on groceries yesterday&rdquo; or &ldquo;received 15000 salary today&rdquo; and I'll log it to the right pillar. You can also ask &ldquo;how much have I spent?&rdquo; or say &ldquo;undo&rdquo; to remove the last thing I logged.</p>
+    </div>
+    <form id="ai-assistant-form" class="ai-assistant-form">
+      <input type="text" id="ai-assistant-input" placeholder="e.g. spent 250 on transportation" autocomplete="off">
+      <button type="submit">Send</button>
+    </form>
+  </div>
+  <button id="ai-assistant-toggle" class="ai-assistant-toggle" aria-expanded="false" aria-controls="ai-assistant-panel">💬 Assistant</button>
+</div>
+
+<script src="aiAssistant.js"></script>
+<script>
+  // Requires serving over HTTP(S) or localhost — service workers do not
+  // register when the page is opened via a file:// path.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch((err) => {
+        console.warn('Service worker registration failed (expected on file://):', err);
+      });
+    });
+  }
+</script>
+</body>
+</html>
