@@ -1,346 +1,336 @@
 /*
- * 5-PILLAR FINANCE
- * Login / Registration / Forgot Password System — Firebase Edition
- * --------------------------------------------------------------------
- * Accounts and dashboard data now live in Firebase (Authentication +
- * Firestore) instead of localStorage, so the SAME account works across
- * any device/browser — register on one, log in from another.
- *
- * Requires firebase-config.js to be loaded first (sets up window.auth
- * and window.db). See that file for setup instructions.
- *
- * The old EmailJS-based "enter a 6-digit code" password reset flow is
- * gone — Firebase Auth has its own built-in reset-link email, which is
- * simpler and doesn't need EmailJS at all. emailVerification.js is no
- * longer used by this file.
+ * 5-PILLAR FINANCE — Rule-Based Finance Assistant
+ * -------------------------------------------------
+ * This is a lightweight, fully client-side text parser — NOT a connection
+ * to an actual AI/LLM. It recognizes common phrasing patterns ("spent 500
+ * on groceries", "received 15000 salary today") using keyword matching,
+ * then fills in and submits the matching pillar's existing entry form —
+ * reusing the exact same code path (and state shape) as typing into the
+ * form by hand. It won't understand open-ended phrasing the way a real AI
+ * assistant would; a genuine AI integration needs a backend to hold an API
+ * key safely, which this project doesn't have (see project notes).
  */
+(function () {
+  "use strict";
 
-const auth = window.auth;
-const db = window.db;
+  /* ---------- pillar detection ---------- */
+  // Checked in this order on purpose: more specific pillars first, so
+  // e.g. "invested" doesn't get caught by a looser "spending" pattern.
+  var PILLAR_PATTERNS = [
+    { pillar: "investments", regex: /\binvest(ed|ing)?\b|\bstocks?\b|\bmutual fund\b|\buitf\b|\betf\b|\bbonds?\b|\btime deposit\b|\bshares?\b/i },
+    { pillar: "protection",  regex: /\bpremium\b|\binsurance\b|\bcoverage\b/i },
+    { pillar: "savings",     regex: /\bsav(e|ed|ing|ings)\b|\bemergency fund\b|\bset aside\b|\bput aside\b|\bdeposit(ed)?\b/i },
+    { pillar: "income",      regex: /\bearn(ed|ings)?\b|\breceiv(e|ed)\b|\bincome\b|\bsalary\b|\bgot paid\b|\bpaid me\b|\bfreelance\b|\ballowance\b|\bbonus\b/i },
+    { pillar: "spending",    regex: /\bspent\b|\bspend\b|\bbought\b|\bpaid for\b|\bexpense\b|\bpurchase(d)?\b/i }
+  ];
 
-// Avatars are stored inline in the user's Firestore document. Firestore
-// caps a document at ~1MB total, and base64-encoding a file inflates its
-// size by about a third — so the raw file needs to stay well under that
-// to leave room for the rest of the profile fields. (A larger limit would
-// need Firebase Storage instead of embedding the image in Firestore.)
-const MAX_AVATAR_BYTES = 700 * 1024;
-
-
-/*
- * Normalize email
- */
-function normalizeUserEmail(email) {
-    return String(email || "").trim().toLowerCase();
-}
-
-
-/*
- * Display message
- */
-function showMessage(id, message, type = "") {
-    const element = document.getElementById(id);
-    if (!element) return;
-    element.textContent = message;
-    element.className = "msg" + (type ? ` ${type}` : "");
-}
-
-
-/*
- * Toast notification
- */
-function showToast(message) {
-    const toast = document.getElementById("toastMessage");
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add("show");
-    clearTimeout(window.__toastTimer);
-    window.__toastTimer = setTimeout(() => {
-        toast.classList.remove("show");
-    }, 3500);
-}
-
-
-/*
- * Switch between Login, Forgot Password and Register
- */
-function showSection(sectionId) {
-    ["login", "forgot", "register"].forEach(id => {
-        const section = document.getElementById(id);
-        if (section) section.hidden = id !== sectionId;
-    });
-}
-
-
-/*
- * Reset forgot-password form back to its starting state
- */
-function resetForgotFlow() {
-    showMessage("forgotMsg", "");
-    const forgotEmailInput = document.getElementById("forgotEmail");
-    if (forgotEmailInput) forgotEmailInput.value = "";
-}
-
-
-/*
- * Convert profile picture into Base64
- */
-function fileToDataURL(file) {
-    return new Promise((resolve, reject) => {
-        if (!file) {
-            resolve("");
-            return;
-        }
-        if (file.size > MAX_AVATAR_BYTES) {
-            reject(new Error(`Profile picture must be under ${Math.round(MAX_AVATAR_BYTES / 1024)}KB.`));
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error("Could not read profile picture."));
-        reader.readAsDataURL(file);
-    });
-}
-
-
-/*
- * Turn a Firebase Auth error into a friendly message
- */
-function firebaseErrorMessage(error) {
-    const code = error && error.code;
-    switch (code) {
-        case "auth/email-already-in-use":
-            return "An account with this email already exists.";
-        case "auth/invalid-email":
-            return "Please enter a valid email address.";
-        case "auth/weak-password":
-            return "Password must be at least 6 characters.";
-        case "auth/user-not-found":
-            return "No account was found with that email.";
-        case "auth/wrong-password":
-        case "auth/invalid-credential":
-            return "Incorrect email or password.";
-        case "auth/too-many-requests":
-            return "Too many attempts. Please wait a moment and try again.";
-        case "auth/network-request-failed":
-            return "Network error — check your internet connection.";
-        default:
-            return (error && error.message) || "Something went wrong. Please try again.";
+  function detectPillar(text){
+    for(var i=0; i<PILLAR_PATTERNS.length; i++){
+      if(PILLAR_PATTERNS[i].regex.test(text)) return PILLAR_PATTERNS[i].pillar;
     }
-}
+    return null;
+  }
 
+  /* ---------- amount extraction ---------- */
+  // Prefers a number explicitly marked as currency (₱500, "500 php",
+  // "500 pesos"). Falls back to the LARGEST number in the sentence —
+  // financial amounts are typically the biggest number mentioned; smaller
+  // numbers are more often quantities ("2 bags") that would otherwise get
+  // mistaken for the amount if we just grabbed the first number found.
+  function extractAmount(text){
+    var marked = text.match(/₱\s*(\d[\d,]*(?:\.\d+)?)/) || text.match(/(\d[\d,]*(?:\.\d+)?)\s*(?:php|pesos?)\b/i);
+    if(marked){
+      var markedVal = parseFloat(marked[1].replace(/,/g, ""));
+      if(!isNaN(markedVal)) return { value: markedVal, raw: marked[1] };
+    }
 
-/*
- * Disables a form's submit button while a submit is in progress, so a
- * fast double-click (or a slow network round-trip) can't fire the
- * handler twice.
- */
-function guardSubmit(form, busyText) {
-    const btn = form.querySelector('button[type="submit"]');
-    const originalText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = busyText;
-    return function release() {
-        btn.disabled = false;
-        btn.textContent = originalText;
-    };
-}
-
-
-/*
- * Start application
- */
-document.addEventListener("DOMContentLoaded", () => {
-
-    const loginForm = document.getElementById("loginForm");
-    const registerForm = document.getElementById("registerForm");
-    const forgotEmailForm = document.getElementById("forgotEmailForm");
-
-    /*
-     * FORGOT PASSWORD BUTTON
-     */
-    document.getElementById("forgotBtn").addEventListener("click", () => {
-        resetForgotFlow();
-        showSection("forgot");
+    var matches = text.match(/\d[\d,]*(?:\.\d+)?/g);
+    if(!matches) return null;
+    var best = null, bestVal = -Infinity;
+    matches.forEach(function(raw){
+      var val = parseFloat(raw.replace(/,/g, ""));
+      if(!isNaN(val) && val > bestVal){ bestVal = val; best = raw; }
     });
+    if(best === null) return null;
+    return { value: bestVal, raw: best };
+  }
 
-    /*
-     * REGISTER BUTTON
-     */
-    document.getElementById("registerBtn").addEventListener("click", () => {
-        showSection("register");
-    });
+  /* ---------- category / type / account matching ---------- */
+  // Picks the first option (from the same lists used in the dropdowns)
+  // that appears as a whole word in the typed text, else falls back to
+  // a sensible default so required fields are never left empty.
+  function matchOption(text, options, fallback){
+    for(var i=0; i<options.length; i++){
+      var re = new RegExp("\\b" + options[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+      if(re.test(text)) return options[i];
+    }
+    return fallback;
+  }
 
-    /*
-     * LOGIN BUTTON
-     */
-    document.getElementById("loginBtn").addEventListener("click", () => {
-        showSection("login");
-    });
+  var CATEGORY_OPTIONS = {
+    income:      { list: ["Salary","Business","Freelance","Allowance","Other"], fallback: "Other" },
+    spending:    { list: ["Housing","Utilities","Groceries","Transportation","Healthcare","Education","Dining Out","Shopping","Entertainment","Personal Care","Subscriptions","Miscellaneous"], fallback: "Miscellaneous" },
+    savings:     { list: ["Bank Savings","Emergency Fund","Digital Bank","Cooperative","Other"], fallback: "Other" },
+    investments: { list: ["Stocks","Bonds","Mutual Fund","UITF","ETF","Time Deposit","Other"], fallback: "Other" },
+    protection:  { list: ["Health Insurance","Life Insurance","Property Insurance","Vehicle Insurance","Emergency Fund","Other Coverage"], fallback: "Other Coverage" }
+  };
 
-    /*
-     * BACK TO LOGIN
-     */
-    document.getElementById("backToLoginBtn").addEventListener("click", () => {
-        resetForgotFlow();
-        showSection("login");
-    });
+  /* ---------- date extraction ---------- */
+  function toDateInputValue(date){
+    return date.toISOString().slice(0, 10);
+  }
+  function extractDate(text){
+    var now = new Date();
+    if(/\byesterday\b/i.test(text)){
+      now.setDate(now.getDate() - 1);
+    }
+    return toDateInputValue(now);
+  }
 
-    /*
-     * PROFILE PICTURE PREVIEW
-     */
-    const avatarInput = document.getElementById("avatarInput");
-    const avatarPreview = document.getElementById("avatarPreview");
-    const avatarPlaceholder = document.getElementById("avatarPlaceholder");
+  /* ---------- leftover-text description ---------- */
+  // Strips the amount and common filler/trigger words, so whatever's left
+  // (if anything sensible) can be used as the entry's description/source.
+  var FILLER_WORDS = /\b(spent|spend|bought|paid for|purchase|purchased|earned|earning|earnings|received|income|salary|got paid|paid me|invested|investing|premium|insurance|coverage|saved|saving|savings|set aside|put aside|deposit|deposited|today|yesterday|php|peso|pesos|on|for|at|from|of|to|in|my|the|a|an|and)\b/gi;
 
-    avatarInput.addEventListener("change", () => {
-        const file = avatarInput.files && avatarInput.files[0];
+  function extractDescription(text, rawAmount){
+    var cleaned = text
+      .replace(/₱/g, "")
+      .replace(rawAmount, "")
+      .replace(FILLER_WORDS, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return cleaned;
+  }
 
-        if (!file) {
-            avatarPreview.hidden = true;
-            avatarPreview.removeAttribute("src");
-            avatarPlaceholder.hidden = false;
-            return;
-        }
-
-        if (file.size > MAX_AVATAR_BYTES) {
-            avatarInput.value = "";
-            avatarPreview.hidden = true;
-            avatarPlaceholder.hidden = false;
-            showMessage(
-                "registerMsg",
-                `Profile picture must be under ${Math.round(MAX_AVATAR_BYTES / 1024)}KB.`,
-                "error"
-            );
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = event => {
-            avatarPreview.src = event.target.result;
-            avatarPreview.hidden = false;
-            avatarPlaceholder.hidden = true;
+  /* ---------- form field maps per pillar ---------- */
+  // required = fields that must not be left empty for the form to submit.
+  var PILLAR_FORMS = {
+    income: {
+      formId: "form-income", panelId: "panel-income", tabPanel: "income",
+      fields: function(amount, category, desc, date){
+        return {
+          "in-date": date,
+          "in-source": desc || category,
+          "in-category": category,
+          "in-actual": amount
+          // in-expected / in-status: left as their defaults, not required
         };
-        reader.readAsDataURL(file);
+      }
+    },
+    spending: {
+      formId: "form-spending", panelId: "panel-spending", tabPanel: "spending",
+      fields: function(amount, category, desc){
+        return {
+          "sp-desc": desc || category,
+          "sp-category": category,
+          "sp-budget": amount,
+          "sp-actual": amount
+        };
+      }
+    },
+    savings: {
+      formId: "form-savings", panelId: "panel-savings", tabPanel: "savings",
+      fields: function(amount, category, desc){
+        return {
+          "sv-goal": desc || category,
+          "sv-account": category,
+          "sv-target": amount,
+          "sv-saved": amount
+        };
+      }
+    },
+    investments: {
+      formId: "form-investments", panelId: "panel-investments", tabPanel: "investments",
+      fields: function(amount, category, desc){
+        return {
+          "iv-type": category,
+          "iv-platform": desc || "Manual entry",
+          "iv-invested": amount,
+          "iv-current": amount
+        };
+      }
+    },
+    protection: {
+      formId: "form-protection", panelId: "panel-protection", tabPanel: "protection",
+      fields: function(amount, category, desc){
+        return {
+          "pr-type": category,
+          "pr-provider": desc || "Manual entry",
+          "pr-premium": amount
+        };
+      }
+    }
+  };
+
+  var PILLAR_LABELS = {
+    income: "Income", spending: "Spending", savings: "Savings",
+    investments: "Investments", protection: "Protection"
+  };
+
+  // Which field in each pillar's entries holds the headline peso amount —
+  // used for answering "how much..." questions from real logged data.
+  var VALUE_FIELD_BY_PILLAR = {
+    income: "actual", spending: "actual", savings: "saved",
+    investments: "current", protection: "premium"
+  };
+
+  var UNDO_PATTERN = /\b(undo|delete (the )?last( entry)?|remove (the )?last( entry)?|cancel (that|last))\b/i;
+  var QUERY_PATTERN = /\b(how much|how many|what'?s|what is|total)\b/i;
+
+  // Tracks the single most recent entry the assistant itself added this
+  // session, so "undo" removes exactly that — never anything the user
+  // added by hand through the forms.
+  var lastAdded = null;
+
+  function answerQuery(pillar, text){
+    var state = window.getDashboardState ? window.getDashboardState() : null;
+    var list = (state && state[pillar]) || [];
+    var field = VALUE_FIELD_BY_PILLAR[pillar];
+    var label = PILLAR_LABELS[pillar].toLowerCase();
+
+    if(list.length === 0){
+      return { ok: true, reply: "You don't have any " + label + " entries logged yet." };
+    }
+
+    var total = list.reduce(function(sum, e){ return sum + (Number(e[field]) || 0); }, 0);
+    var amountText = "\u20B1" + total.toLocaleString("en-PH");
+    var countText = list.length + (list.length === 1 ? " entry" : " entries");
+    return { ok: true, reply: "Your total " + label + " right now is " + amountText + " across " + countText + "." };
+  }
+
+  /* ---------- main parse + fill + submit ---------- */
+  function handleMessage(text){
+    if(UNDO_PATTERN.test(text)){
+      if(!lastAdded){
+        return { ok: false, reply: "There's nothing for me to undo yet — I haven't logged anything this session." };
+      }
+      var removed = window.deleteDashboardEntry ? window.deleteDashboardEntry(lastAdded.pillar, lastAdded.id) : false;
+      var label = lastAdded.label;
+      lastAdded = null;
+      if(removed) return { ok: true, reply: "Undone — removed " + label + "." };
+      return { ok: false, reply: "Couldn't find that entry anymore — it may have already been edited or removed." };
+    }
+
+    var pillar = detectPillar(text);
+    var amountInfo = extractAmount(text);
+
+    if(pillar && !amountInfo && QUERY_PATTERN.test(text)){
+      return answerQuery(pillar, text);
+    }
+
+    if(!pillar || !amountInfo){
+      return {
+        ok: false,
+        reply: "I couldn't quite tell what to log from that. Try something like " +
+               "\u201Cspent 500 on groceries yesterday\u201D or \u201Creceived 15000 salary today.\u201D " +
+               "Include an amount and a word like spent / received / saved / invested / premium. " +
+               "You can also ask things like \u201Chow much have I spent?\u201D or say \u201Cundo\u201D."
+      };
+    }
+    var amount = amountInfo.value;
+
+    var categoryConfig = CATEGORY_OPTIONS[pillar];
+    var category = matchOption(text, categoryConfig.list, categoryConfig.fallback);
+    var desc = extractDescription(text, amountInfo.raw);
+    var date = extractDate(text);
+
+    var formConfig = PILLAR_FORMS[pillar];
+    var form = document.getElementById(formConfig.formId);
+    if(!form) return { ok:false, reply:"Something's off — I couldn't find that section of the dashboard." };
+
+    var values = formConfig.fields(amount, category, desc, date);
+    Object.keys(values).forEach(function(fieldId){
+      var el = document.getElementById(fieldId);
+      if(el && values[fieldId] !== undefined && values[fieldId] !== "") el.value = values[fieldId];
     });
 
-    /*
-     * LOGIN
-     */
-    loginForm.addEventListener("submit", async event => {
-        event.preventDefault();
-        const release = guardSubmit(loginForm, "Signing in...");
+    // Switch to the relevant tab so the user can see where the entry landed.
+    var tab = document.getElementById("tab-" + formConfig.tabPanel);
+    if(tab) tab.click();
 
-        const email = normalizeUserEmail(document.getElementById("email").value);
-        const password = document.getElementById("password").value;
+    // Submitting the real form re-uses the app's existing add-entry logic
+    // and state shape exactly — no duplicated push-to-state code here.
+    if(typeof form.requestSubmit === "function") form.requestSubmit();
+    else form.dispatchEvent(new Event("submit", { cancelable: true }));
 
-        try {
-            const credential = await auth.signInWithEmailAndPassword(email, password);
+    var amountText = "\u20B1" + amount.toLocaleString("en-PH");
+    var summary = amountText + " under " + PILLAR_LABELS[pillar] +
+                  " (" + category + ")" + (desc ? ", \u201C" + desc + "\u201D" : "");
 
-            showMessage("loginMsg", "Login successful! Redirecting...", "success");
-            showToast(`Welcome back, ${credential.user.displayName || "there"}!`);
+    // The form handler pushes synchronously, so the just-added entry is
+    // now the last item in that pillar's array — remember it for "undo".
+    var stateAfter = window.getDashboardState ? window.getDashboardState() : null;
+    var listAfter = stateAfter && stateAfter[pillar];
+    var newEntry = listAfter && listAfter[listAfter.length - 1];
+    lastAdded = newEntry ? { pillar: pillar, id: newEntry.id, label: summary } : null;
 
-            setTimeout(() => {
-                window.location.href = "dashboard.html";
-            }, 700);
-        } catch (error) {
-            release();
-            showMessage("loginMsg", firebaseErrorMessage(error), "error");
-        }
+    return { ok: true, reply: "Got it — logged " + summary + "." };
+  }
+
+  /* ---------- widget wiring ---------- */
+  function init(){
+    var toggle = document.getElementById("ai-assistant-toggle");
+    var panel = document.getElementById("ai-assistant-panel");
+    var closeBtn = document.getElementById("ai-assistant-close");
+    var log = document.getElementById("ai-assistant-log");
+    var form = document.getElementById("ai-assistant-form");
+    var input = document.getElementById("ai-assistant-input");
+    if(!toggle || !panel || !form || !input || !log) return; // widget markup not present on this page
+
+    // Remembers whether the panel was open across page reloads/navigation
+    // (e.g. the browser Back button) for this browser tab session — so
+    // closing it and coming back later doesn't silently reset it to closed.
+    var OPEN_STATE_KEY = "five-pillar-assistant-open";
+
+    function addMessage(text, who){
+      var p = document.createElement("p");
+      p.className = "ai-assistant-msg ai-assistant-msg-" + who;
+      p.textContent = text;
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function openPanel(focusInput){
+      panel.hidden = false;
+      toggle.setAttribute("aria-expanded", "true");
+      try{ sessionStorage.setItem(OPEN_STATE_KEY, "1"); }catch(e){}
+      if(focusInput !== false) input.focus();
+    }
+    function closePanel(){
+      panel.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+      try{ sessionStorage.setItem(OPEN_STATE_KEY, "0"); }catch(e){}
+    }
+
+    toggle.addEventListener("click", function(){
+      if(panel.hidden) openPanel(); else closePanel();
+    });
+    closeBtn.addEventListener("click", closePanel);
+    document.addEventListener("keydown", function(ev){
+      if(ev.key === "Escape" && !panel.hidden) closePanel();
     });
 
-    /*
-     * REGISTRATION
-     */
-    registerForm.addEventListener("submit", async event => {
-        event.preventDefault();
-        const release = guardSubmit(registerForm, "Creating account...");
+    // Restore whatever state this tab last left the assistant in, without
+    // stealing focus the moment the page loads.
+    try{
+      if(sessionStorage.getItem(OPEN_STATE_KEY) === "1") openPanel(false);
+    }catch(e){}
 
-        const name = document.getElementById("name").value.trim();
-        const email = normalizeUserEmail(document.getElementById("regEmail").value);
-        const password = document.getElementById("regPassword").value;
-        const confirmPassword = document.getElementById("confirmPassword").value;
-        const avatarFile = document.getElementById("avatarInput").files[0];
+    form.addEventListener("submit", function(ev){
+      ev.preventDefault();
+      var text = input.value.trim();
+      if(!text) return;
+      addMessage(text, "user");
+      input.value = "";
 
-        if (password !== confirmPassword) {
-            release();
-            showMessage("registerMsg", "Passwords do not match.", "error");
-            return;
-        }
-
-        if (password.length < 6) {
-            release();
-            showMessage("registerMsg", "Password must be at least 6 characters.", "error");
-            return;
-        }
-
-        let avatar = "";
-        try {
-            avatar = await fileToDataURL(avatarFile);
-        } catch (error) {
-            release();
-            showMessage("registerMsg", error.message, "error");
-            return;
-        }
-
-        try {
-            const credential = await auth.createUserWithEmailAndPassword(email, password);
-            await credential.user.updateProfile({ displayName: name });
-
-            await db.collection("users").doc(credential.user.uid).set({
-                name: name,
-                email: email,
-                avatar: avatar || null,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Firebase signs the new account in automatically — sign back
-            // out so the person lands on the login screen next, matching
-            // the original register → login flow instead of skipping
-            // straight into the dashboard.
-            await auth.signOut();
-
-            release();
-            registerForm.reset();
-            avatarPreview.hidden = true;
-            avatarPreview.removeAttribute("src");
-            avatarPlaceholder.hidden = false;
-
-            showMessage("registerMsg", "Account created successfully. You can now log in.", "success");
-            showToast("Your account was created successfully.");
-
-            setTimeout(() => {
-                showSection("login");
-            }, 900);
-        } catch (error) {
-            release();
-            showMessage("registerMsg", firebaseErrorMessage(error), "error");
-        }
+      var result = handleMessage(text);
+      addMessage(result.reply, "bot");
     });
+  }
 
-    /*
-     * FORGOT PASSWORD — send Firebase's built-in reset-link email
-     */
-    forgotEmailForm.addEventListener("submit", async event => {
-        event.preventDefault();
-
-        const email = normalizeUserEmail(document.getElementById("forgotEmail").value);
-        const button = document.getElementById("sendCodeBtn");
-
-        button.disabled = true;
-        button.textContent = "Sending...";
-
-        try {
-            await auth.sendPasswordResetEmail(email);
-            showMessage(
-                "forgotMsg",
-                "Check your email for a link to reset your password. It may take a minute to arrive — check spam too.",
-                "success"
-            );
-        } catch (error) {
-            showMessage("forgotMsg", firebaseErrorMessage(error), "error");
-        } finally {
-            button.disabled = false;
-            button.textContent = "Send reset link";
-        }
-    });
-});
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
