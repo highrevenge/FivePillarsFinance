@@ -56,23 +56,104 @@
   }
 
   /* ---------- category / type / account matching ---------- */
-  // Picks the first option (from the same lists used in the dropdowns)
-  // that appears as a whole word in the typed text, else falls back to
-  // a sensible default so required fields are never left empty.
-  function matchOption(text, options, fallback){
-    for(var i=0; i<options.length; i++){
-      var re = new RegExp("\\b" + options[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
-      if(re.test(text)) return options[i];
+  // Each canonical category (the exact dropdown option text) maps to a list
+  // of real-world words/phrases people actually use. The canonical name
+  // itself is always included automatically, so exact matches still work.
+  // First matching synonym wins; falls back to a sensible default so
+  // required fields are never left empty.
+  var CATEGORY_SYNONYMS = {
+    income: {
+      fallback: "Other",
+      map: {
+        "Salary": ["salary", "payroll", "paycheck", "sweldo"],
+        "Business": ["business", "sales", "profit", "shop income"],
+        "Freelance": ["freelance", "gig", "project payment", "client payment", "upwork", "fiverr"],
+        "Allowance": ["allowance", "baon", "pocket money"]
+      }
+    },
+    spending: {
+      fallback: "Miscellaneous",
+      map: {
+        "Housing": ["rent", "mortgage", "condo dues", "association dues", "housing"],
+        "Utilities": ["electricity", "meralco", "water bill", "maynilad", "internet", "wifi", "globe", "pldt", "load", "utilities", "utility bill"],
+        "Groceries": ["grocery", "groceries", "supermarket", "sari-sari", "palengke", "market", "sm supermarket", "puregold"],
+        "Transportation": ["uber", "grab", "taxi", "jeepney", "gas", "gasoline", "fuel", "parking", "toll", "mrt", "lrt", "bus fare", "transportation", "transport"],
+        "Healthcare": ["doctor", "hospital", "medicine", "pharmacy", "mercury drug", "checkup", "dental", "clinic", "healthcare"],
+        "Education": ["tuition", "school fee", "school fees", "books", "uniform", "education"],
+        "Dining Out": ["restaurant", "lunch", "dinner", "breakfast", "cafe", "coffee", "starbucks", "jollibee", "mcdo", "mcdonald", "foodpanda", "grabfood", "dining"],
+        "Shopping": ["clothes", "shoes", "lazada", "shopee", "mall", "shopping"],
+        "Entertainment": ["movie", "cinema", "concert", "games", "entertainment"],
+        "Personal Care": ["haircut", "salon", "spa", "skincare", "personal care"],
+        "Subscriptions": ["netflix", "spotify", "disney+", "subscription", "prime video", "youtube premium"],
+        "Miscellaneous": ["misc", "miscellaneous", "other expense"]
+      }
+    },
+    savings: {
+      fallback: "Other",
+      map: {
+        "Bank Savings": ["bank savings", "savings account", "bank", "bdo", "bpi", "metrobank"],
+        "Emergency Fund": ["emergency fund", "emergency savings"],
+        "Digital Bank": ["gcash", "maya", "digital bank", "ewallet", "e-wallet", "seabank", "cimb"],
+        "Cooperative": ["cooperative", "coop"]
+      }
+    },
+    investments: {
+      fallback: "Other",
+      map: {
+        "Stocks": ["stock", "stocks", "stock market", "shares", "pse", "cop"],
+        "Bonds": ["bond", "bonds", "treasury bond", "rtb"],
+        "Mutual Fund": ["mutual fund", "mutual funds"],
+        "UITF": ["uitf"],
+        "ETF": ["etf"],
+        "Time Deposit": ["time deposit", "td"]
+      }
+    },
+    protection: {
+      fallback: "Other Coverage",
+      map: {
+        "Health Insurance": ["health insurance", "hmo", "philhealth", "healthcare plan"],
+        "Life Insurance": ["life insurance", "insurance policy", "sun life", "pru life"],
+        "Property Insurance": ["property insurance", "home insurance", "fire insurance"],
+        "Vehicle Insurance": ["vehicle insurance", "car insurance", "motor insurance"],
+        "Emergency Fund": ["emergency coverage"]
+      }
     }
-    return fallback;
+  };
+
+  function findCategory(text, pillar){
+    var config = CATEGORY_SYNONYMS[pillar];
+    var map = config.map;
+    var canonicalNames = Object.keys(map);
+
+    for(var i=0; i<canonicalNames.length; i++){
+      var re = new RegExp("\\b" + canonicalNames[i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+      if(re.test(text)) return canonicalNames[i];
+    }
+
+    var allSynonyms = [];
+    canonicalNames.forEach(function(name){
+      map[name].forEach(function(syn){ allSynonyms.push({name:name, syn:syn}); });
+    });
+    allSynonyms.sort(function(a,b){ return b.syn.length - a.syn.length; });
+
+    for(var j=0; j<allSynonyms.length; j++){
+      var entry = allSynonyms[j];
+      var synRe = new RegExp("\\b" + entry.syn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "i");
+      if(synRe.test(text)) return entry.name;
+    }
+
+    return null;
   }
 
-  var CATEGORY_OPTIONS = {
-    income:      { list: ["Salary","Business","Freelance","Allowance","Other"], fallback: "Other" },
-    spending:    { list: ["Housing","Utilities","Groceries","Transportation","Healthcare","Education","Dining Out","Shopping","Entertainment","Personal Care","Subscriptions","Miscellaneous"], fallback: "Miscellaneous" },
-    savings:     { list: ["Bank Savings","Emergency Fund","Digital Bank","Cooperative","Other"], fallback: "Other" },
-    investments: { list: ["Stocks","Bonds","Mutual Fund","UITF","ETF","Time Deposit","Other"], fallback: "Other" },
-    protection:  { list: ["Health Insurance","Life Insurance","Property Insurance","Vehicle Insurance","Emergency Fund","Other Coverage"], fallback: "Other Coverage" }
+  function matchCategory(text, pillar){
+    return findCategory(text, pillar) || CATEGORY_SYNONYMS[pillar].fallback;
+  }
+
+  // Which field on each pillar's entries holds its category/type/account
+  // label — used so a query can filter to just that category.
+  var CATEGORY_FIELD_BY_PILLAR = {
+    income: "category", spending: "category", savings: "account",
+    investments: "type", protection: "type"
   };
 
   /* ---------- date extraction ---------- */
@@ -184,22 +265,45 @@
 
   function answerQuery(pillar, text){
     var state = window.getDashboardState ? window.getDashboardState() : null;
-    var list = (state && state[pillar]) || [];
+    var fullList = (state && state[pillar]) || [];
     var field = VALUE_FIELD_BY_PILLAR[pillar];
     var label = PILLAR_LABELS[pillar].toLowerCase();
 
+    var namedCategory = findCategory(text, pillar);
+    var list = namedCategory
+      ? fullList.filter(function(e){ return e[CATEGORY_FIELD_BY_PILLAR[pillar]] === namedCategory; })
+      : fullList;
+    var scopeLabel = namedCategory ? (label + " (" + namedCategory + ")") : label;
+
     if(list.length === 0){
-      return { ok: true, reply: "You don't have any " + label + " entries logged yet." };
+      return { ok: true, reply: "You don't have any " + scopeLabel + " entries logged yet." };
     }
 
     var total = list.reduce(function(sum, e){ return sum + (Number(e[field]) || 0); }, 0);
     var amountText = "\u20B1" + total.toLocaleString("en-PH");
     var countText = list.length + (list.length === 1 ? " entry" : " entries");
-    return { ok: true, reply: "Your total " + label + " right now is " + amountText + " across " + countText + "." };
+    return { ok: true, reply: "Your total " + scopeLabel + " right now is " + amountText + " across " + countText + "." };
   }
+
+  var GREETING_PATTERN = /^(hi|hello|hey|hiya|yo|good morning|good afternoon|good evening|thanks|thank you|thx)[\s!.,]*$/i;
+  var HELP_PATTERN = /\b(help|what can you do|how do you work|commands|examples)\b/i;
+
+  var HELP_TEXT =
+    "Here's what I can do:\n" +
+    "\u2022 Log an entry — \u201Cspent 500 on groceries yesterday\u201D, \u201Creceived 15000 salary today\u201D, \u201Csaved 2000 to emergency fund\u201D, \u201Cinvested 5000 in mutual fund\u201D, \u201Cpaid 800 premium for health insurance\u201D\n" +
+    "\u2022 Ask totals — \u201Chow much have I spent?\u201D or \u201Chow much did I spend on groceries?\u201D\n" +
+    "\u2022 Undo — say \u201Cundo\u201D right after I log something to remove it";
 
   /* ---------- main parse + fill + submit ---------- */
   function handleMessage(text){
+    if(GREETING_PATTERN.test(text.trim())){
+      return { ok: true, reply: "Hey! Tell me what you spent, earned, saved, invested, or paid — or ask \u201Cwhat can you do?\u201D for examples." };
+    }
+
+    if(HELP_PATTERN.test(text)){
+      return { ok: true, reply: HELP_TEXT };
+    }
+
     if(UNDO_PATTERN.test(text)){
       if(!lastAdded){
         return { ok: false, reply: "There's nothing for me to undo yet — I haven't logged anything this session." };
@@ -229,8 +333,7 @@
     }
     var amount = amountInfo.value;
 
-    var categoryConfig = CATEGORY_OPTIONS[pillar];
-    var category = matchOption(text, categoryConfig.list, categoryConfig.fallback);
+    var category = matchCategory(text, pillar);
     var desc = extractDescription(text, amountInfo.raw);
     var date = extractDate(text);
 
